@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>見守りアプリ</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f0;--surface:#fff;--surface2:#f0efeb;
+  --border:rgba(0,0,0,.12);--border2:rgba(0,0,0,.22);
+  --text:#1a1a18;--text2:#6b6b68;--text3:#9a9a96;
+  --accent:#1a1a18;--accent-fg:#fff;
+  --green-bg:#eaf3de;--green-text:#3b6d11;--green-border:rgba(59,109,17,.3);
+  --amber-bg:#faeeda;--amber-text:#854f0b;--amber-border:rgba(133,79,11,.3);
+  --red-bg:#fcebeb;--red-text:#a32d2d;--red-border:rgba(163,45,45,.3);
+  --blue-bg:#e6f1fb;--blue-text:#185fa5;--blue-border:rgba(24,95,165,.3);
+  --r:12px;--rs:8px
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1c1c1a;--surface:#2a2a28;--surface2:#232321;
+  --border:rgba(255,255,255,.1);--border2:rgba(255,255,255,.2);
+  --text:#f0efe9;--text2:#a8a8a3;--text3:#6b6b67;
+  --accent:#f0efe9;--accent-fg:#1c1c1a;
+  --green-bg:#17340a;--green-text:#c0dd97;--green-border:rgba(192,221,151,.25);
+  --amber-bg:#412402;--amber-text:#fac775;--amber-border:rgba(250,199,117,.25);
+  --red-bg:#501313;--red-text:#f7c1c1;--red-border:rgba(247,193,193,.25);
+  --blue-bg:#042c53;--blue-text:#85b7eb;--blue-border:rgba(133,183,235,.25)
+}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;display:flex;align-items:flex-start;justify-content:center;padding:1.5rem 1rem 3rem}
+.app{width:100%;max-width:480px}
+.screen{display:none}.screen.active{display:block}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:1.75rem}
+.logo-icon{width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-text{font-size:17px;font-weight:600;letter-spacing:-.3px}
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem}
+.mode-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem 1rem;text-align:center;cursor:pointer;transition:border-color .15s,transform .1s;-webkit-tap-highlight-color:transparent}
+.mode-card:hover{border-color:var(--border2)}.mode-card:active{transform:scale(.98)}
+.mode-emoji{font-size:32px;margin-bottom:10px;display:block}
+.mode-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.mode-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.note{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.8}
+.note strong{color:var(--text)}
+.btn-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:0;margin-bottom:1.25rem}
+.btn-back:hover{color:var(--text)}.btn-back svg{width:16px;height:16px}
+.page-title{font-size:20px;font-weight:700;letter-spacing:-.4px;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text2);margin-bottom:1rem;line-height:1.6}
+.step-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--blue-text);background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:99px;padding:3px 10px;margin-bottom:8px}
+.status-pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;padding:5px 11px;border-radius:99px;border:1px solid;margin-bottom:1rem}
+.status-pill.waiting{background:var(--amber-bg);color:var(--amber-text);border-color:var(--amber-border)}
+.status-pill.connected{background:var(--green-bg);color:var(--green-text);border-color:var(--green-border)}
+.status-pill.error{background:var(--red-bg);color:var(--red-text);border-color:var(--red-border)}
+.status-pill.ready{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-border)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.dot.pulse{animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1rem}
+.card-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+textarea{width:100%;font-family:'SF Mono',Menlo,monospace;font-size:11px;line-height:1.5;padding:10px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);color:var(--text);resize:vertical;min-height:88px;outline:none}
+textarea:focus{border-color:var(--border2)}
+.btn-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.btn-primary{background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--rs);padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.btn-primary:hover{opacity:.82}.btn-primary:active{opacity:.7}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed}
+.btn-full{width:100%}
+video{width:100%;border-radius:var(--r);border:1px solid var(--border);background:#000;aspect-ratio:4/3;object-fit:cover;display:block;margin-bottom:1rem}
+.video-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+.vol-row{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
+.vol-label{font-size:12px;color:var(--text2);white-space:nowrap}
+.vol-bar-bg{flex:1;height:6px;background:var(--surface2);border-radius:99px;overflow:hidden}
+.vol-bar{height:100%;width:0%;background:var(--green-text);border-radius:99px;transition:width .08s}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HOME -->
+<div id="home" class="screen active">
+  <div class="logo">
+    <div class="logo-icon">👁</div>
+    <span class="logo-text">見守りアプリ</span>
+  </div>
+  <p style="font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:1.5rem">
+    カメラ・音声をリアルタイムで共有します。<br>LINEでコードを2回交換するだけで接続できます。
+  </p>
+  <div class="mode-grid">
+    <div class="mode-card" onclick="goSender()">
+      <span class="mode-emoji">📱</span>
+      <p class="mode-title">子供用</p>
+      <p class="mode-desc">カメラ・音声を<br>送信する</p>
+    </div>
+    <div class="mode-card" onclick="goReceiver()">
+      <span class="mode-emoji">🖥️</span>
+      <p class="mode-title">保護者用</p>
+      <p class="mode-desc">映像・音声を<br>受信する</p>
+    </div>
+  </div>
+  <div class="note">
+    <strong>接続の流れ：</strong><br>
+    ① スマホ「子供用」→ オファーコードをLINEで送る<br>
+    ② PC「保護者用」→ コードを貼り付け → アンサーコードをLINEで返す<br>
+    ③ スマホでアンサーを貼り付け → 接続完了！<br><br>
+    <strong>外部サーバー不使用</strong>のため安定して動作します。
+  </div>
+</div>
+
+<!-- SENDER -->
+<div id="sender" class="screen">
+  <button class="btn-back" onclick="goHome()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    ホームに戻る
+  </button>
+  <p class="page-title">子供用 — 送信</p>
+  <div id="s-status" class="status-pill waiting"><span class="dot pulse"></span>カメラを起動中...</div>
+
+  <div id="s-step1">
+    <div class="step-badge">STEP 1 — カメラ確認</div>
+    <p class="page-sub">映像を確認して「オファーを作成する」を押してください</p>
+    <div class="vol-row" id="vol-row" style="display:none">
+      <span class="vol-label">マイク</span>
+      <div class="vol-bar-bg"><div class="vol-bar" id="vol-bar"></div></div>
+    </div>
+    <p class="video-label">プレビュー</p>
+    <video id="local-video" autoplay muted playsinline></video>
+    <button class="btn-primary btn-full" id="make-offer-btn" onclick="makeOffer()" disabled>オファーを作成する →</button>
+  </div>
+
+  <div id="s-step2" style="display:none">
+    <hr class="divider">
+    <div class="step-badge">STEP 2 — 保護者に送る</div>
+    <p class="page-sub">下のコードをコピーして<strong>LINEで保護者のPCに送ってください</strong></p>
+    <div class="card">
+      <p class="card-label">オファーコード（保護者に送る）</p>
+      <textarea id="offer-out" readonly></textarea>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="copyText('offer-out','copy-offer-btn')" id="copy-offer-btn">コピーする</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="s-step3" style="display:none">
+    <hr class="divider">
+    <div class="step-badge">STEP 3 — アンサーを貼り付け</div>
+    <p class="page-sub">保護者からLINEで届いた<strong>アンサーコードを貼り付けて</strong>接続してください</p>
+    <div class="card">
+      <p class="card-label">アンサーコード（保護者から受け取る）</p>
+      <textarea id="answer-in" placeholder="保護者のPCに表示されたコードをここに貼り付ける"></textarea>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="applyAnswer()">接続する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RECEIVER -->
+<div id="receiver" class="screen">
+  <button class="btn-back" onclick="goHome()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    ホームに戻る
+  </button>
+  <p class="page-title">保護者用 — 受信</p>
+  <div id="r-status" class="status-pill waiting"><span class="dot"></span>未接続</div>
+
+  <div id="r-step1">
+    <div class="step-badge">STEP 1 — コードを貼り付け</div>
+    <p class="page-sub">子供のスマホで表示された<strong>オファーコードを貼り付けて</strong>ください</p>
+    <div class="card">
+      <p class="card-label">オファーコード（子供から受け取る）</p>
+      <textarea id="offer-in" placeholder="スマホで表示されたコードをここに貼り付ける"></textarea>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="processOffer()">アンサーを生成する →</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="r-step2" style="display:none">
+    <hr class="divider">
+    <div class="step-badge">STEP 2 — 子供に送る</div>
+    <p class="page-sub">下のコードをコピーして<strong>LINEで子供のスマホに送ってください</strong></p>
+    <div class="card">
+      <p class="card-label">アンサーコード（子供に送る）</p>
+      <textarea id="answer-out" readonly></textarea>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="copyText('answer-out','copy-answer-btn')" id="copy-answer-btn">コピーする</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--text2);line-height:1.6">子供がアンサーコードを貼り付けると、下に映像が表示されます。</p>
+  </div>
+
+  <div id="r-step3" style="display:none">
+    <hr class="divider">
+    <p class="video-label">受信映像</p>
+    <video id="remote-video" autoplay playsinline></video>
+  </div>
+</div>
+
+</div>
+
+<script>
+const ICE=[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}
+];
+let localStream=null,senderPC=null,receiverPC=null,audioCtx=null,volInterval=null;
+
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function setStatus(id,type,text,pulse){const el=document.getElementById(id);el.className='status-pill '+type;el.innerHTML=`<span class="dot${pulse?' pulse':''}"></span>${text}`}
+function showEl(id,v){document.getElementById(id).style.display=v?'block':'none'}
+function goHome(){cleanup();show('home')}
+function cleanup(){
+  if(volInterval){clearInterval(volInterval);volInterval=null}
+  if(audioCtx){try{audioCtx.close()}catch(e){}audioCtx=null}
+  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}
+  if(senderPC){try{senderPC.close()}catch(e){}senderPC=null}
+  if(receiverPC){try{receiverPC.close()}catch(e){}receiverPC=null}
+}
+
+function enc(obj){return btoa(unescape(encodeURIComponent(JSON.stringify(obj))))}
+function dec(str){try{return JSON.parse(decodeURIComponent(escape(atob(str.trim()))))}catch(e){return null}}
+
+function copyText(taId,btnId){
+  const val=document.getElementById(taId).value;
+  navigator.clipboard.writeText(val).catch(()=>{const ta=document.getElementById(taId);ta.select();document.execCommand('copy')});
+  const btn=document.getElementById(btnId);const orig=btn.textContent;
+  btn.textContent='✓ コピー済み';setTimeout(()=>{btn.textContent=orig},2500);
+}
+
+// ── SENDER ──
+async function goSender(){
+  show('sender');
+  setStatus('s-status','waiting','カメラを起動中...',true);
+  showEl('s-step2',false);showEl('s-step3',false);
+  document.getElementById('make-offer-btn').disabled=true;
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+  }catch(e){
+    let msg='❌ カメラ/マイクの許可が必要です';
+    if(e.name==='NotAllowedError')msg='❌ カメラが拒否されています。ブラウザ設定から許可してください。';
+    if(e.name==='NotFoundError')msg='❌ カメラが見つかりません。';
+    setStatus('s-status','error',msg,false);return;
+  }
+  document.getElementById('local-video').srcObject=localStream;
+  showEl('vol-row',true);startVol(localStream);
+  setStatus('s-status','ready','カメラ起動完了。「オファーを作成する」を押してください。',false);
+  document.getElementById('make-offer-btn').disabled=false;
+}
+
+async function makeOffer(){
+  setStatus('s-status','waiting','オファーを生成中（最大8秒かかります）...',true);
+  document.getElementById('make-offer-btn').disabled=true;
+  senderPC=new RTCPeerConnection({iceServers:ICE});
+  localStream.getTracks().forEach(t=>senderPC.addTrack(t,localStream));
+  const offer=await senderPC.createOffer();
+  await senderPC.setLocalDescription(offer);
+  await waitICE(senderPC);
+  document.getElementById('offer-out').value=enc(senderPC.localDescription);
+  showEl('s-step2',true);showEl('s-step3',true);
+  setStatus('s-status','ready','STEP 2: オファーコードをLINEで保護者に送ってください',false);
+}
+
+async function applyAnswer(){
+  const raw=document.getElementById('answer-in').value.trim();
+  const desc=dec(raw);
+  if(!desc||desc.type!=='answer'){setStatus('s-status','error','❌ 正しいアンサーコードを貼り付けてください',false);return}
+  setStatus('s-status','waiting','接続中...',true);
+  try{
+    await senderPC.setRemoteDescription(desc);
+    setStatus('s-status','connected','✅ 接続完了！映像・音声を送信中です',false);
+  }catch(e){
+    setStatus('s-status','error','❌ 接続失敗。アンサーコードが正しいか確認してください',false);
+  }
+}
+
+// ── RECEIVER ──
+function goReceiver(){
+  show('receiver');
+  showEl('r-step2',false);showEl('r-step3',false);
+  setStatus('r-status','waiting','オファーコードを貼り付けてください',false);
+}
+
+async function processOffer(){
+  const raw=document.getElementById('offer-in').value.trim();
+  const desc=dec(raw);
+  if(!desc||desc.type!=='offer'){setStatus('r-status','error','❌ 正しいオファーコードを貼り付けてください',false);return}
+  setStatus('r-status','waiting','アンサーを生成中（最大8秒かかります）...',true);
+  receiverPC=new RTCPeerConnection({iceServers:ICE});
+  receiverPC.ontrack=e=>{
+    const v=document.getElementById('remote-video');
+    v.srcObject=e.streams[0];v.play().catch(()=>{});
+    setStatus('r-status','connected','✅ 接続完了！映像・音声を受信中です',false);
+    showEl('r-step3',true);
+  };
+  await receiverPC.setRemoteDescription(desc);
+  const answer=await receiverPC.createAnswer();
+  await receiverPC.setLocalDescription(answer);
+  await waitICE(receiverPC);
+  document.getElementById('answer-out').value=enc(receiverPC.localDescription);
+  showEl('r-step2',true);
+  setStatus('r-status','ready','STEP 2: アンサーコードをLINEで子供に送ってください',false);
+}
+
+function waitICE(pc){
+  return new Promise(resolve=>{
+    if(pc.iceGatheringState==='complete'){resolve();return}
+    const h=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',h);resolve()}};
+    pc.addEventListener('icegatheringstatechange',h);
+    setTimeout(resolve,8000);
+  });
+}
+
+function startVol(stream){
+  if(volInterval)clearInterval(volInterval);
+  if(audioCtx)try{audioCtx.close()}catch(e){}
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const src=audioCtx.createMediaStreamSource(stream);
+    const an=audioCtx.createAnalyser();an.fftSize=256;src.connect(an);
+    const d=new Uint8Array(an.frequencyBinCount);
+    volInterval=setInterval(()=>{
+      an.getByteFrequencyData(d);
+      const avg=d.reduce((a,b)=>a+b,0)/d.length;
+      document.getElementById('vol-bar').style.width=Math.min(avg*2.5,100)+'%';
+    },80);
+  }catch(e){}
+}
+</script>
+</body>
+</html>
