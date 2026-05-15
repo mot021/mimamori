@@ -556,9 +556,11 @@ async function makeOffer(){
   const offer=await senderPC.createOffer();
   await senderPC.setLocalDescription(offer);
   await waitICE(senderPC);
-  document.getElementById('offer-out').value=enc({...senderPC.localDescription,sid:sessionId});
+  document.getElementById('offer-out').value=enc({type:senderPC.localDescription.type,sdp:senderPC.localDescription.sdp,sid:sessionId});
   showEl('s-step2',true);showEl('s-step3',true);
   setStatus('s-status','ready','STEP 2: オファーコードをメールで保護者に送ってください',false);
+  // MQTTはバックグラウンドで初期化（コード発行をブロックしない）
+  initMQTT().catch(e=>console.warn('MQTT',e));
 }
 
 async function applyAnswer(){
@@ -624,7 +626,7 @@ async function doReconnect(){
   await senderPC.setLocalDescription(offer);
   await waitICE(senderPC);
   mqttClear('reconnect_answer');
-  mqttPublish('reconnect_offer',enc({...senderPC.localDescription,sid:sessionId}));
+  mqttPublish('reconnect_offer',enc({type:senderPC.localDescription.type,sdp:senderPC.localDescription.sdp,sid:sessionId}));
   setStatus('s-status','waiting','保護者のPCが自動受信するのを待っています...',true);
   if(mqttClient&&mqttClient.connected){
     mqttSubscribe('reconnect_answer',async data=>{
@@ -705,7 +707,7 @@ async function processOffer(){
   const answer=await receiverPC.createAnswer();
   await receiverPC.setLocalDescription(answer);
   await waitICE(receiverPC);
-  document.getElementById('answer-out').value=enc({...receiverPC.localDescription});
+  document.getElementById('answer-out').value=enc({type:receiverPC.localDescription.type,sdp:receiverPC.localDescription.sdp});
   showEl('r-step2',true);
   setStatus('r-status','ready','STEP 2: アンサーコードをメールで子供に送ってください',false);
 }
@@ -728,7 +730,7 @@ async function handleReconnectOffer(data){
   const answer=await receiverPC.createAnswer();
   await receiverPC.setLocalDescription(answer);
   await waitICE(receiverPC);
-  mqttPublish('reconnect_answer',enc({...receiverPC.localDescription}));
+  mqttPublish('reconnect_answer',enc({type:receiverPC.localDescription.type,sdp:receiverPC.localDescription.sdp}));
   mqttClear('reconnect_offer');
 }
 function monitorReceiverConnection(){
