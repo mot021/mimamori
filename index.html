@@ -55,7 +55,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;ba
 .dot.pulse{animation:pulse 1.4s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1rem}
-.card-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.card-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
 textarea{width:100%;font-family:'SF Mono',Menlo,monospace;font-size:11px;line-height:1.5;padding:10px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);color:var(--text);resize:vertical;min-height:88px;outline:none}
 textarea:focus{border-color:var(--border2)}
 .btn-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
@@ -63,13 +63,103 @@ textarea:focus{border-color:var(--border2)}
 .btn-primary:hover{opacity:.82}.btn-primary:active{opacity:.7}
 .btn-primary:disabled{opacity:.35;cursor:not-allowed}
 .btn-full{width:100%}
-video{width:100%;border-radius:var(--r);border:1px solid var(--border);background:#000;aspect-ratio:4/3;object-fit:cover;display:block;margin-bottom:1rem}
-.video-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
-.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
-.vol-row{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
+.btn-danger{background:var(--red-text);color:#fff;border:none;border-radius:var(--rs);padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn-reconnect{background:#e65c00;color:#fff;border:none;border-radius:var(--rs);padding:14px 20px;font-size:16px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px}
+.btn-reconnect:disabled{opacity:.35;cursor:not-allowed}
+.vol-row{display:flex;align-items:center;gap:8px;margin-bottom:.75rem}
 .vol-label{font-size:12px;color:var(--text2);white-space:nowrap}
 .vol-bar-bg{flex:1;height:6px;background:var(--surface2);border-radius:99px;overflow:hidden}
 .vol-bar{height:100%;width:0%;background:var(--green-text);border-radius:99px;transition:width .08s}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)}
+.toggle-label{font-size:13px;font-weight:500}
+.toggle-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.toggle-wrap{display:flex;align-items:center;gap:8px}
+.toggle-state{font-size:12px;font-weight:600}
+.toggle-state.on{color:var(--green-text)}.toggle-state.off{color:var(--red-text)}
+.toggle{position:relative;width:44px;height:26px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:99px;cursor:pointer;transition:background .2s,border-color .2s}
+.toggle input:checked+.toggle-track{background:var(--green-text);border-color:var(--green-text)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle input:checked~.toggle-thumb{transform:translateX(18px)}
+.reconnect-panel{background:var(--red-bg);border:1.5px solid var(--red-border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1rem}
+.reconnect-title{font-size:14px;font-weight:700;color:var(--red-text);margin-bottom:4px}
+.reconnect-sub{font-size:12px;color:var(--red-text);opacity:.8;margin-bottom:12px;line-height:1.5}
+.countdown-bar-bg{width:100%;height:6px;background:rgba(163,45,45,.2);border-radius:99px;overflow:hidden;margin-bottom:4px}
+.countdown-bar{height:100%;background:var(--red-text);border-radius:99px;transition:width 1s linear}
+.countdown-text{font-size:12px;color:var(--red-text);text-align:right;margin-bottom:10px;font-family:'SF Mono',Menlo,monospace}
+
+/* ─── 受信映像ビュー ───────────────────────────────── */
+.video-wrapper{position:relative;width:100%;border-radius:var(--r);overflow:hidden;background:#000;cursor:pointer;margin-bottom:.75rem}
+.video-wrapper video{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+.video-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:500;padding:5px 12px;border-radius:99px;pointer-events:none;backdrop-filter:blur(4px);white-space:nowrap;transition:opacity .3s}
+.video-status-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.rec-live{display:none;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--red-text);background:var(--red-bg);border:1px solid var(--red-border);padding:4px 10px;border-radius:99px}
+.rec-live-dot{width:7px;height:7px;border-radius:50%;background:var(--red-text);animation:pulse 1s infinite}
+
+/* ─── コントロールパネル（フローティングウィンドウ）── */
+.ctrl-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;backdrop-filter:blur(3px);animation:fadeIn .15s}
+.ctrl-backdrop.open{display:block}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.ctrl-window{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  max-height:85dvh;
+  background:var(--surface);
+  border-radius:20px 20px 0 0;
+  box-shadow:0 -8px 40px rgba(0,0,0,.2);
+  z-index:101;
+  overflow:hidden;
+  transform:translateY(0);
+  animation:slideUp .22s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+}
+@media(min-width:600px){
+  .ctrl-window{
+    bottom:auto;top:50%;left:50%;right:auto;
+    transform:translate(-50%,-50%);
+    width:420px;max-height:80vh;
+    border-radius:var(--r);
+    animation:popIn .18s cubic-bezier(.4,0,.2,1);
+  }
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,-48%)}to{opacity:1;transform:translate(-50%,-50%)}}
+.ctrl-titlebar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 12px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  cursor:grab;
+  user-select:none;
+}
+.ctrl-title{font-size:15px;font-weight:700}
+.ctrl-close{background:var(--surface2);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text2);flex-shrink:0}
+.ctrl-close:hover{background:var(--border)}
+.ctrl-body{overflow-y:auto;padding:16px 20px 24px;flex:1}
+/* ウィンドウ内のセクション */
+.ctrl-section{margin-bottom:1.25rem}
+.ctrl-section-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+.cam-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0}
+.cam-btn{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rs);padding:12px 8px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent}
+.cam-btn:hover{border-color:var(--border2)}
+.cam-btn.active{border-color:var(--accent);background:var(--surface)}
+.cam-btn-icon{font-size:22px;display:block;margin-bottom:4px}
+.cam-btn-label{font-size:12px;font-weight:600}
+.cam-btn-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.ctrl-switch-status{font-size:12px;color:var(--text2);text-align:center;margin-top:8px}
+/* 録画ウィジェット */
+.rec-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px}
+.rec-stat{background:var(--surface2);border-radius:var(--rs);padding:8px;text-align:center}
+.rec-stat-val{font-size:15px;font-weight:700;font-family:'SF Mono',Menlo,monospace}
+.rec-stat-lbl{font-size:10px;color:var(--text3);margin-top:2px}
+.rec-quality{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:var(--text2)}
+.rec-quality select{flex:1;font-size:13px;padding:6px 8px;border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none}
+.rec-btns{display:flex;gap:8px;margin-bottom:10px}
+.rec-log{background:var(--surface2);border-radius:var(--rs);padding:8px 10px;font-size:11px;font-family:'SF Mono',Menlo,monospace;color:var(--text2);max-height:70px;overflow-y:auto;line-height:1.7}
+.ctrl-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)}
+.ctrl-toggle-row:first-child{border-top:none;padding-top:0}
 </style>
 </head>
 <body>
@@ -82,7 +172,7 @@ video{width:100%;border-radius:var(--r);border:1px solid var(--border);backgroun
     <span class="logo-text">見守りアプリ</span>
   </div>
   <p style="font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:1.5rem">
-    カメラ・音声をリアルタイムで共有します。<br>LINEでコードを2回交換するだけで接続できます。
+    カメラ・音声をリアルタイムで共有します。<br>メールでコードを2回交換するだけで接続できます。
   </p>
   <div class="mode-grid">
     <div class="mode-card" onclick="goSender()">
@@ -93,15 +183,16 @@ video{width:100%;border-radius:var(--r);border:1px solid var(--border);backgroun
     <div class="mode-card" onclick="goReceiver()">
       <span class="mode-emoji">🖥️</span>
       <p class="mode-title">保護者用</p>
-      <p class="mode-desc">映像・音声を<br>受信する</p>
+      <p class="mode-desc">映像・音声を受信<br>録画・カメラ切替</p>
     </div>
   </div>
   <div class="note">
     <strong>接続の流れ：</strong><br>
-    ① スマホ「子供用」→ オファーコードをLINEで送る<br>
-    ② PC「保護者用」→ コードを貼り付け → アンサーコードをLINEで返す<br>
+    ① スマホ「子供用」→ オファーコードをメールで送る<br>
+    ② PC「保護者用」→ コードを貼り付け → アンサーコードをメールで返す<br>
     ③ スマホでアンサーを貼り付け → 接続完了！<br><br>
-    <strong>外部サーバー不使用</strong>のため安定して動作します。
+    <strong>切断時：</strong>10分以内なら「再接続」ボタン1つで自動再接続します。<br>
+    <strong>保護者側：</strong>映像をクリックするとコントロールパネルが開きます。
   </div>
 </div>
 
@@ -121,15 +212,15 @@ video{width:100%;border-radius:var(--r);border:1px solid var(--border);backgroun
       <span class="vol-label">マイク</span>
       <div class="vol-bar-bg"><div class="vol-bar" id="vol-bar"></div></div>
     </div>
-    <p class="video-label">プレビュー</p>
-    <video id="local-video" autoplay muted playsinline></video>
+    <p style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">プレビュー</p>
+    <video id="local-video" style="width:100%;border-radius:var(--r);border:1px solid var(--border);background:#000;aspect-ratio:4/3;object-fit:cover;display:block;margin-bottom:1rem" autoplay muted playsinline></video>
     <button class="btn-primary btn-full" id="make-offer-btn" onclick="makeOffer()" disabled>オファーを作成する →</button>
   </div>
 
   <div id="s-step2" style="display:none">
     <hr class="divider">
     <div class="step-badge">STEP 2 — 保護者に送る</div>
-    <p class="page-sub">下のコードをコピーして<strong>LINEで保護者のPCに送ってください</strong></p>
+    <p class="page-sub">下のコードをコピーして<strong>メールで保護者のPCに送ってください</strong></p>
     <div class="card">
       <p class="card-label">オファーコード（保護者に送る）</p>
       <textarea id="offer-out" readonly></textarea>
@@ -142,13 +233,44 @@ video{width:100%;border-radius:var(--r);border:1px solid var(--border);backgroun
   <div id="s-step3" style="display:none">
     <hr class="divider">
     <div class="step-badge">STEP 3 — アンサーを貼り付け</div>
-    <p class="page-sub">保護者からLINEで届いた<strong>アンサーコードを貼り付けて</strong>接続してください</p>
+    <p class="page-sub">保護者からメールで届いた<strong>アンサーコードを貼り付けて</strong>接続してください</p>
     <div class="card">
       <p class="card-label">アンサーコード（保護者から受け取る）</p>
       <textarea id="answer-in" placeholder="保護者のPCに表示されたコードをここに貼り付ける"></textarea>
       <div class="btn-row">
         <button class="btn-primary" onclick="applyAnswer()">接続する</button>
       </div>
+    </div>
+  </div>
+
+  <div id="s-controls" style="display:none">
+    <hr class="divider">
+    <div class="card">
+      <p class="card-label">音声コントロール</p>
+      <div class="toggle-row" style="border-top:none;padding-top:0">
+        <div>
+          <div class="toggle-label">🎤 マイク送信</div>
+          <div class="toggle-sub" style="font-size:11px;color:var(--text2);margin-top:2px">OFFにすると保護者に音声が届きません</div>
+        </div>
+        <div class="toggle-wrap">
+          <span class="toggle-state on" id="s-mic-state">ON</span>
+          <label class="toggle">
+            <input type="checkbox" id="s-mic-toggle" checked onchange="toggleSenderMic()">
+            <div class="toggle-track"></div><div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+      <p id="s-switch-msg" style="font-size:12px;color:var(--text2);text-align:center;padding:6px 0 0">📷 現在: インカメラ</p>
+    </div>
+  </div>
+
+  <div id="s-reconnect-panel" style="display:none">
+    <div class="reconnect-panel">
+      <p class="reconnect-title">⚠️ 接続が切れました</p>
+      <p class="reconnect-sub">10分以内なら再接続ボタン1つで自動的に再接続できます</p>
+      <div class="countdown-bar-bg"><div class="countdown-bar" id="s-countdown-bar" style="width:100%"></div></div>
+      <p class="countdown-text" id="s-countdown-text">残り 10:00</p>
+      <button class="btn-reconnect" id="s-reconnect-btn" onclick="doReconnect()">🔄 再接続する</button>
     </div>
   </div>
 </div>
@@ -177,7 +299,7 @@ video{width:100%;border-radius:var(--r);border:1px solid var(--border);backgroun
   <div id="r-step2" style="display:none">
     <hr class="divider">
     <div class="step-badge">STEP 2 — 子供に送る</div>
-    <p class="page-sub">下のコードをコピーして<strong>LINEで子供のスマホに送ってください</strong></p>
+    <p class="page-sub">下のコードをコピーして<strong>メールで子供のスマホに送ってください</strong></p>
     <div class="card">
       <p class="card-label">アンサーコード（子供に送る）</p>
       <textarea id="answer-out" readonly></textarea>
@@ -188,15 +310,113 @@ video{width:100%;border-radius:var(--r);border:1px solid var(--border);backgroun
     <p style="font-size:12px;color:var(--text2);line-height:1.6">子供がアンサーコードを貼り付けると、下に映像が表示されます。</p>
   </div>
 
+  <!-- 接続後: 映像ビュー -->
   <div id="r-step3" style="display:none">
     <hr class="divider">
-    <p class="video-label">受信映像</p>
-    <video id="remote-video" autoplay playsinline></video>
+    <div class="video-status-bar">
+      <p style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">受信映像</p>
+      <div class="rec-live" id="rec-live"><span class="rec-live-dot"></span>録画中</div>
+    </div>
+    <div class="video-wrapper" onclick="openCtrl()" id="video-wrapper">
+      <video id="remote-video" autoplay playsinline></video>
+      <div class="video-hint" id="video-hint">⚙️ クリックで操作パネルを開く</div>
+    </div>
+    <p style="font-size:12px;color:var(--text2);text-align:center;margin-top:-4px">映像をクリックすると操作パネルが開きます</p>
   </div>
 </div>
 
+<!-- ─── コントロールパネル（フローティングウィンドウ）─── -->
+<div class="ctrl-backdrop" id="ctrl-backdrop" onclick="closeCtrlIfBackdrop(event)">
+  <div class="ctrl-window" id="ctrl-window">
+    <div class="ctrl-titlebar" id="ctrl-titlebar">
+      <span class="ctrl-title">⚙️ 操作パネル</span>
+      <button class="ctrl-close" onclick="closeCtrl()">✕</button>
+    </div>
+    <div class="ctrl-body">
+
+      <!-- カメラ切り替え -->
+      <div class="ctrl-section">
+        <p class="ctrl-section-label">📷 カメラ切り替え</p>
+        <div class="cam-ctrl">
+          <button class="cam-btn active" id="btn-front" onclick="sendCmd('camera:front')">
+            <span class="cam-btn-icon">🤳</span>
+            <span class="cam-btn-label">インカメラ</span>
+            <span class="cam-btn-sub">顔・前方向</span>
+          </button>
+          <button class="cam-btn" id="btn-back" onclick="sendCmd('camera:back')">
+            <span class="cam-btn-icon">📷</span>
+            <span class="cam-btn-label">アウトカメラ</span>
+            <span class="cam-btn-sub">背面・外向き</span>
+          </button>
+        </div>
+        <p id="r-switch-msg" class="ctrl-switch-status">📷 現在: インカメラ</p>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
+
+      <!-- 音声コントロール -->
+      <div class="ctrl-section">
+        <p class="ctrl-section-label">🔊 音声コントロール</p>
+        <div class="ctrl-toggle-row">
+          <div>
+            <div class="toggle-label">🔊 受信音声（PC側）</div>
+            <div class="toggle-sub">OFFにするとPC側のスピーカーを消音</div>
+          </div>
+          <div class="toggle-wrap">
+            <span class="toggle-state on" id="r-spk-state">ON</span>
+            <label class="toggle">
+              <input type="checkbox" id="r-spk-toggle" checked onchange="toggleReceiverSpk()">
+              <div class="toggle-track"></div><div class="toggle-thumb"></div>
+            </label>
+          </div>
+        </div>
+        <div class="ctrl-toggle-row">
+          <div>
+            <div class="toggle-label">🎤 子供のマイク</div>
+            <div class="toggle-sub">OFFにするとスマホ側のマイクをリモートで停止</div>
+          </div>
+          <div class="toggle-wrap">
+            <span class="toggle-state on" id="r-mic-state">ON</span>
+            <label class="toggle">
+              <input type="checkbox" id="r-mic-toggle" checked onchange="toggleRemoteMic()">
+              <div class="toggle-track"></div><div class="toggle-thumb"></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
+
+      <!-- 録画 -->
+      <div class="ctrl-section">
+        <p class="ctrl-section-label">⏺ 録画</p>
+        <div class="rec-quality">
+          <span>画質：</span>
+          <select id="quality-select">
+            <option value="2000000">高画質（約75MB/5分）</option>
+            <option value="1000000" selected>標準（約37MB/5分）</option>
+            <option value="500000">低画質（約19MB/5分）</option>
+          </select>
+        </div>
+        <div class="rec-grid">
+          <div class="rec-stat"><div class="rec-stat-val" id="rec-timer">00:00</div><div class="rec-stat-lbl">経過時間</div></div>
+          <div class="rec-stat"><div class="rec-stat-val" id="rec-chunk">—</div><div class="rec-stat-lbl">保存済み</div></div>
+          <div class="rec-stat"><div class="rec-stat-val" id="rec-next">—</div><div class="rec-stat-lbl">次の保存まで</div></div>
+        </div>
+        <div class="rec-btns">
+          <button class="btn-primary" id="rec-start-btn" onclick="startRecording()">⏺ 録画開始</button>
+          <button class="btn-danger" id="rec-stop-btn" onclick="stopRecording()" style="display:none">⏹ 停止・保存</button>
+        </div>
+        <div class="rec-log" id="rec-log">待機中...</div>
+      </div>
+
+    </div>
+  </div>
 </div>
 
+</div><!-- /app -->
+
+<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
 <script>
 const ICE=[
   {urls:'stun:stun.l.google.com:19302'},
@@ -205,38 +425,112 @@ const ICE=[
   {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},
   {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}
 ];
-let localStream=null,senderPC=null,receiverPC=null,audioCtx=null,volInterval=null;
+const MQTT_URL='wss://broker.emqx.io:8084/mqtt';
+const RECONNECT_MS=10*60*1000;
 
+let localStream=null,senderPC=null,receiverPC=null;
+let audioCtx=null,volInterval=null,controlChannel=null,remoteStream=null;
+let mqttClient=null,sessionId=null;
+let lastConnectedTime=null,reconnectCountdownTimer=null;
+let wasRecording=false;
+let mediaRecorder=null,recChunks=[],recChunkCount=0;
+let recStartTime=null,recChunkStartTime=null,recTimerInterval=null;
+const CHUNK_MIN=5;
+
+// ── UI ────────────────────────────────────────────────────
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 function setStatus(id,type,text,pulse){const el=document.getElementById(id);el.className='status-pill '+type;el.innerHTML=`<span class="dot${pulse?' pulse':''}"></span>${text}`}
-function showEl(id,v){document.getElementById(id).style.display=v?'block':'none'}
-function goHome(){cleanup();show('home')}
-function cleanup(){
-  if(volInterval){clearInterval(volInterval);volInterval=null}
-  if(audioCtx){try{audioCtx.close()}catch(e){}audioCtx=null}
-  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}
-  if(senderPC){try{senderPC.close()}catch(e){}senderPC=null}
-  if(receiverPC){try{receiverPC.close()}catch(e){}receiverPC=null}
-}
-
+function showEl(id,v){const el=document.getElementById(id);if(el)el.style.display=v?'block':'none'}
+function fmtTime(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}
+function nowStr(){const d=new Date();return`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`}
+function addLog(msg){const el=document.getElementById('rec-log');if(el){el.textContent+='\n'+msg;el.scrollTop=el.scrollHeight}}
 function enc(obj){return btoa(unescape(encodeURIComponent(JSON.stringify(obj))))}
 function dec(str){try{return JSON.parse(decodeURIComponent(escape(atob(str.trim()))))}catch(e){return null}}
-
 function copyText(taId,btnId){
   const val=document.getElementById(taId).value;
   navigator.clipboard.writeText(val).catch(()=>{const ta=document.getElementById(taId);ta.select();document.execCommand('copy')});
   const btn=document.getElementById(btnId);const orig=btn.textContent;
   btn.textContent='✓ コピー済み';setTimeout(()=>{btn.textContent=orig},2500);
 }
+function genSessionId(){return Math.random().toString(36).substr(2,10).toUpperCase()}
 
-// ── SENDER ──
+// ── コントロールパネル ────────────────────────────────────
+function openCtrl(){
+  const bd=document.getElementById('ctrl-backdrop');
+  bd.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeCtrl(){
+  document.getElementById('ctrl-backdrop').classList.remove('open');
+  document.body.style.overflow='';
+}
+function closeCtrlIfBackdrop(e){
+  if(e.target===document.getElementById('ctrl-backdrop')) closeCtrl();
+}
+// ヒントを接続後に非表示
+function hideHint(){
+  const h=document.getElementById('video-hint');
+  if(h)h.style.opacity='0';
+  setTimeout(()=>{if(h)h.style.display='none'},300);
+}
+
+// ── クリーンアップ ────────────────────────────────────────
+function goHome(){cleanup();closeCtrl();show('home')}
+function cleanup(){
+  stopRecording();stopCountdown();
+  if(volInterval){clearInterval(volInterval);volInterval=null}
+  if(audioCtx){try{audioCtx.close()}catch(e){}audioCtx=null}
+  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}
+  if(senderPC){try{senderPC.close()}catch(e){}senderPC=null}
+  if(receiverPC){try{receiverPC.close()}catch(e){}receiverPC=null}
+  if(mqttClient){try{mqttClient.end()}catch(e){}mqttClient=null}
+  controlChannel=null;remoteStream=null;sessionId=null;lastConnectedTime=null;
+}
+
+// ── MQTT ──────────────────────────────────────────────────
+function initMQTT(){
+  return new Promise(resolve=>{
+    if(typeof mqtt==='undefined'){resolve(null);return}
+    const cid='mimo_'+Math.random().toString(36).substr(2,8);
+    const c=mqtt.connect(MQTT_URL,{clientId:cid,clean:true,connectTimeout:8000,reconnectPeriod:3000});
+    c.on('connect',()=>{mqttClient=c;resolve(c)});
+    c.on('error',e=>console.warn('MQTT',e));
+    setTimeout(()=>resolve(null),10000);
+  });
+}
+function mqttTopic(role){return`mimamori_v1/${sessionId}/${role}`}
+function mqttPublish(role,data){if(!mqttClient||!mqttClient.connected)return;mqttClient.publish(mqttTopic(role),data,{qos:1,retain:true})}
+function mqttSubscribe(role,cb){
+  if(!mqttClient||!mqttClient.connected)return;
+  const topic=mqttTopic(role);
+  mqttClient.subscribe(topic,{qos:1});
+  mqttClient.on('message',(t,msg)=>{if(t===topic&&msg.toString())cb(msg.toString())});
+}
+function mqttClear(role){if(!mqttClient||!mqttClient.connected)return;mqttClient.publish(mqttTopic(role),'',{qos:1,retain:true})}
+
+// ── 再接続カウントダウン ──────────────────────────────────
+function startCountdown(){
+  stopCountdown();showEl('s-reconnect-panel',true);
+  const bar=document.getElementById('s-countdown-bar');
+  const txt=document.getElementById('s-countdown-text');
+  const endTime=lastConnectedTime+RECONNECT_MS;
+  reconnectCountdownTimer=setInterval(()=>{
+    const rem=Math.max(0,Math.floor((endTime-Date.now())/1000));
+    bar.style.width=(rem/(RECONNECT_MS/1000)*100)+'%';
+    txt.textContent=`残り ${fmtTime(rem)}`;
+    if(rem<=0){stopCountdown();document.getElementById('s-reconnect-btn').disabled=true;setStatus('s-status','error','❌ 再接続期限切れ。最初からやり直してください。',false)}
+  },1000);
+}
+function stopCountdown(){if(reconnectCountdownTimer){clearInterval(reconnectCountdownTimer);reconnectCountdownTimer=null}}
+
+// ── SENDER ───────────────────────────────────────────────
 async function goSender(){
   show('sender');
   setStatus('s-status','waiting','カメラを起動中...',true);
-  showEl('s-step2',false);showEl('s-step3',false);
+  showEl('s-step2',false);showEl('s-step3',false);showEl('s-controls',false);showEl('s-reconnect-panel',false);
   document.getElementById('make-offer-btn').disabled=true;
   try{
-    localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    localStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:true});
   }catch(e){
     let msg='❌ カメラ/マイクの許可が必要です';
     if(e.name==='NotAllowedError')msg='❌ カメラが拒否されています。ブラウザ設定から許可してください。';
@@ -252,14 +546,19 @@ async function goSender(){
 async function makeOffer(){
   setStatus('s-status','waiting','オファーを生成中（最大8秒かかります）...',true);
   document.getElementById('make-offer-btn').disabled=true;
+  sessionId=genSessionId();
+  await initMQTT();
   senderPC=new RTCPeerConnection({iceServers:ICE});
   localStream.getTracks().forEach(t=>senderPC.addTrack(t,localStream));
+  controlChannel=senderPC.createDataChannel('control');
+  controlChannel.onmessage=e=>handleSenderCmd(e.data);
+  monitorSenderConnection();
   const offer=await senderPC.createOffer();
   await senderPC.setLocalDescription(offer);
   await waitICE(senderPC);
-  document.getElementById('offer-out').value=enc(senderPC.localDescription);
+  document.getElementById('offer-out').value=enc({...senderPC.localDescription,sid:sessionId});
   showEl('s-step2',true);showEl('s-step3',true);
-  setStatus('s-status','ready','STEP 2: オファーコードをLINEで保護者に送ってください',false);
+  setStatus('s-status','ready','STEP 2: オファーコードをメールで保護者に送ってください',false);
 }
 
 async function applyAnswer(){
@@ -268,41 +567,283 @@ async function applyAnswer(){
   if(!desc||desc.type!=='answer'){setStatus('s-status','error','❌ 正しいアンサーコードを貼り付けてください',false);return}
   setStatus('s-status','waiting','接続中...',true);
   try{
-    await senderPC.setRemoteDescription(desc);
-    setStatus('s-status','connected','✅ 接続完了！映像・音声を送信中です',false);
-  }catch(e){
-    setStatus('s-status','error','❌ 接続失敗。アンサーコードが正しいか確認してください',false);
-  }
+    await senderPC.setRemoteDescription({type:desc.type,sdp:desc.sdp});
+    lastConnectedTime=Date.now();
+    setStatus('s-status','connected','✅ 接続完了！保護者がカメラ・音声を操作できます',false);
+    showEl('s-controls',true);showEl('s-reconnect-panel',false);
+    document.getElementById('s-mic-toggle').checked=true;
+    document.getElementById('s-mic-state').textContent='ON';
+    document.getElementById('s-mic-state').className='toggle-state on';
+    if(mqttClient&&mqttClient.connected){
+      mqttSubscribe('reconnect_answer',async data=>{
+        const d=dec(data);
+        if(d&&d.type==='answer'&&senderPC&&senderPC.signalingState==='have-local-offer'){
+          try{
+            await senderPC.setRemoteDescription({type:d.type,sdp:d.sdp});
+            lastConnectedTime=Date.now();
+            setStatus('s-status','connected','✅ 再接続完了！',false);
+            showEl('s-reconnect-panel',false);stopCountdown();
+            mqttClear('reconnect_answer');mqttClear('reconnect_offer');
+          }catch(err){console.warn(err)}
+        }
+      });
+    }
+  }catch(e){setStatus('s-status','error','❌ 接続失敗。アンサーコードを確認してください',false)}
 }
 
-// ── RECEIVER ──
+function monitorSenderConnection(){
+  if(!senderPC)return;
+  senderPC.oniceconnectionstatechange=()=>{
+    const st=senderPC.iceConnectionState;
+    if(st==='connected'||st==='completed'){lastConnectedTime=Date.now();showEl('s-reconnect-panel',false);stopCountdown();setStatus('s-status','connected','✅ 接続中',false)}
+    if(st==='disconnected'){
+      setStatus('s-status','waiting','⚠️ 接続が不安定です...',true);
+      setTimeout(()=>{if(senderPC&&(senderPC.iceConnectionState==='disconnected'||senderPC.iceConnectionState==='failed'))onSenderDisconnected()},8000);
+    }
+    if(st==='failed') onSenderDisconnected();
+  };
+}
+function onSenderDisconnected(){
+  if(!lastConnectedTime||Date.now()-lastConnectedTime>RECONNECT_MS){setStatus('s-status','error','❌ 接続が切れました。最初からやり直してください。',false);return}
+  setStatus('s-status','error','⚠️ 接続が切れました。再接続ボタンを押してください。',false);
+  showEl('s-controls',false);
+  document.getElementById('s-reconnect-btn').disabled=false;
+  startCountdown();
+}
+async function doReconnect(){
+  if(!lastConnectedTime||Date.now()-lastConnectedTime>RECONNECT_MS){setStatus('s-status','error','❌ 再接続期限切れ',false);return}
+  setStatus('s-status','waiting','再接続中...',true);
+  document.getElementById('s-reconnect-btn').disabled=true;
+  if(senderPC){try{senderPC.close()}catch(e){}}
+  senderPC=new RTCPeerConnection({iceServers:ICE});
+  if(localStream)localStream.getTracks().forEach(t=>senderPC.addTrack(t,localStream));
+  controlChannel=senderPC.createDataChannel('control');
+  controlChannel.onmessage=e=>handleSenderCmd(e.data);
+  monitorSenderConnection();
+  const offer=await senderPC.createOffer();
+  await senderPC.setLocalDescription(offer);
+  await waitICE(senderPC);
+  mqttClear('reconnect_answer');
+  mqttPublish('reconnect_offer',enc({...senderPC.localDescription,sid:sessionId}));
+  setStatus('s-status','waiting','保護者のPCが自動受信するのを待っています...',true);
+  if(mqttClient&&mqttClient.connected){
+    mqttSubscribe('reconnect_answer',async data=>{
+      const d=dec(data);
+      if(d&&d.type==='answer'&&senderPC&&senderPC.signalingState==='have-local-offer'){
+        try{
+          await senderPC.setRemoteDescription({type:d.type,sdp:d.sdp});
+          lastConnectedTime=Date.now();
+          setStatus('s-status','connected','✅ 再接続完了！',false);
+          showEl('s-reconnect-panel',false);showEl('s-controls',true);stopCountdown();
+          mqttClear('reconnect_answer');mqttClear('reconnect_offer');
+        }catch(err){setStatus('s-status','error','❌ 再接続失敗。もう一度お試しください。',false);document.getElementById('s-reconnect-btn').disabled=false}
+      }
+    });
+  }else{setStatus('s-status','error','❌ サーバーに接続できません。再試行してください。',false);document.getElementById('s-reconnect-btn').disabled=false}
+}
+
+function toggleSenderMic(){
+  const on=document.getElementById('s-mic-toggle').checked;
+  if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=on);
+  document.getElementById('s-mic-state').textContent=on?'ON':'OFF';
+  document.getElementById('s-mic-state').className='toggle-state '+(on?'on':'off');
+  if(controlChannel&&controlChannel.readyState==='open')controlChannel.send(on?'mic:on':'mic:off');
+}
+async function handleSenderCmd(cmd){
+  if(cmd==='camera:front')await switchCamera('user','インカメラ（前面）');
+  if(cmd==='camera:back')await switchCamera('environment','アウトカメラ（背面）');
+  if(cmd==='mic:mute'){if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=false);document.getElementById('s-mic-toggle').checked=false;document.getElementById('s-mic-state').textContent='OFF';document.getElementById('s-mic-state').className='toggle-state off'}
+  if(cmd==='mic:unmute'){if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=true);document.getElementById('s-mic-toggle').checked=true;document.getElementById('s-mic-state').textContent='ON';document.getElementById('s-mic-state').className='toggle-state on'}
+}
+async function switchCamera(facingMode,label){
+  setStatus('s-status','waiting',`📷 ${label}に切り替え中...`,true);
+  try{
+    const ns=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:true});
+    const senders=senderPC.getSenders();
+    const vS=senders.find(s=>s.track&&s.track.kind==='video');
+    const aS=senders.find(s=>s.track&&s.track.kind==='audio');
+    if(vS)await vS.replaceTrack(ns.getVideoTracks()[0]);
+    if(aS)await aS.replaceTrack(ns.getAudioTracks()[0]);
+    const micOn=document.getElementById('s-mic-toggle').checked;
+    ns.getAudioTracks().forEach(t=>t.enabled=micOn);
+    localStream.getTracks().forEach(t=>t.stop());
+    localStream=ns;
+    document.getElementById('local-video').srcObject=localStream;
+    setStatus('s-status','connected',`✅ 接続中 — 現在: ${label}`,false);
+    document.getElementById('s-switch-msg').textContent=`📷 現在: ${label}`;
+    if(controlChannel&&controlChannel.readyState==='open')controlChannel.send('switched:'+facingMode);
+  }catch(e){setStatus('s-status','error','❌ カメラ切り替えに失敗しました',false)}
+}
+
+// ── RECEIVER ─────────────────────────────────────────────
 function goReceiver(){
   show('receiver');
   showEl('r-step2',false);showEl('r-step3',false);
   setStatus('r-status','waiting','オファーコードを貼り付けてください',false);
 }
-
 async function processOffer(){
   const raw=document.getElementById('offer-in').value.trim();
-  const desc=dec(raw);
-  if(!desc||desc.type!=='offer'){setStatus('r-status','error','❌ 正しいオファーコードを貼り付けてください',false);return}
+  const decoded=dec(raw);
+  if(!decoded||decoded.type!=='offer'){setStatus('r-status','error','❌ 正しいオファーコードを貼り付けてください',false);return}
+  sessionId=decoded.sid||null;
+  const desc={type:decoded.type,sdp:decoded.sdp};
   setStatus('r-status','waiting','アンサーを生成中（最大8秒かかります）...',true);
+  if(sessionId){await initMQTT();if(mqttClient&&mqttClient.connected)mqttSubscribe('reconnect_offer',data=>handleReconnectOffer(data))}
   receiverPC=new RTCPeerConnection({iceServers:ICE});
+  receiverPC.ondatachannel=e=>{controlChannel=e.channel;controlChannel.onmessage=e2=>handleReceiverMsg(e2.data)};
   receiverPC.ontrack=e=>{
+    remoteStream=e.streams[0];
     const v=document.getElementById('remote-video');
-    v.srcObject=e.streams[0];v.play().catch(()=>{});
-    setStatus('r-status','connected','✅ 接続完了！映像・音声を受信中です',false);
+    v.srcObject=remoteStream;v.play().catch(()=>{});
+    setStatus('r-status','connected','✅ 接続完了！映像をクリックして操作パネルを開いてください',false);
     showEl('r-step3',true);
+    setActiveCamBtn('front');resetReceiverToggles();
+    document.getElementById('rec-log').textContent='接続完了。録画を開始できます。';
   };
+  monitorReceiverConnection();
   await receiverPC.setRemoteDescription(desc);
   const answer=await receiverPC.createAnswer();
   await receiverPC.setLocalDescription(answer);
   await waitICE(receiverPC);
-  document.getElementById('answer-out').value=enc(receiverPC.localDescription);
+  document.getElementById('answer-out').value=enc({...receiverPC.localDescription});
   showEl('r-step2',true);
-  setStatus('r-status','ready','STEP 2: アンサーコードをLINEで子供に送ってください',false);
+  setStatus('r-status','ready','STEP 2: アンサーコードをメールで子供に送ってください',false);
+}
+async function handleReconnectOffer(data){
+  const decoded=dec(data);
+  if(!decoded||decoded.type!=='offer')return;
+  setStatus('r-status','waiting','⚡ 子供のスマホが再接続中...自動処理しています',true);
+  if(receiverPC){try{receiverPC.close()}catch(e){}}
+  receiverPC=new RTCPeerConnection({iceServers:ICE});
+  receiverPC.ondatachannel=e=>{controlChannel=e.channel;controlChannel.onmessage=e2=>handleReceiverMsg(e2.data)};
+  receiverPC.ontrack=e=>{
+    remoteStream=e.streams[0];
+    const v=document.getElementById('remote-video');
+    v.srcObject=remoteStream;v.play().catch(()=>{});
+    setStatus('r-status','connected','✅ 再接続完了！',false);
+    if(wasRecording)setTimeout(()=>startRecording(),500);
+  };
+  monitorReceiverConnection();
+  await receiverPC.setRemoteDescription({type:decoded.type,sdp:decoded.sdp});
+  const answer=await receiverPC.createAnswer();
+  await receiverPC.setLocalDescription(answer);
+  await waitICE(receiverPC);
+  mqttPublish('reconnect_answer',enc({...receiverPC.localDescription}));
+  mqttClear('reconnect_offer');
+}
+function monitorReceiverConnection(){
+  if(!receiverPC)return;
+  receiverPC.oniceconnectionstatechange=()=>{
+    const st=receiverPC.iceConnectionState;
+    if(st==='connected'||st==='completed')setStatus('r-status','connected','✅ 接続中 — 映像をクリックして操作パネルを開く',false);
+    if(st==='disconnected')setStatus('r-status','waiting','⚠️ 接続が不安定です...',true);
+    if(st==='failed'){setStatus('r-status','error','⚠️ 接続が切れました。子供のスマホで再接続ボタンを押してください。',false);wasRecording=(mediaRecorder&&mediaRecorder.state==='recording');if(wasRecording)stopRecording()}
+  };
+}
+function resetReceiverToggles(){
+  document.getElementById('r-spk-toggle').checked=true;document.getElementById('r-spk-state').textContent='ON';document.getElementById('r-spk-state').className='toggle-state on';
+  document.getElementById('r-mic-toggle').checked=true;document.getElementById('r-mic-state').textContent='ON';document.getElementById('r-mic-state').className='toggle-state on';
+  document.getElementById('remote-video').muted=false;
+}
+function sendCmd(cmd){
+  if(!controlChannel||controlChannel.readyState!=='open'){setStatus('r-status','error','❌ まだ接続されていません',false);return}
+  const label=cmd==='camera:front'?'インカメラ（前面）':'アウトカメラ（背面）';
+  document.getElementById('r-switch-msg').textContent=`⏳ ${label}に切り替え中...`;
+  controlChannel.send(cmd);
+}
+function toggleReceiverSpk(){
+  const on=document.getElementById('r-spk-toggle').checked;
+  document.getElementById('remote-video').muted=!on;
+  document.getElementById('r-spk-state').textContent=on?'ON':'OFF';
+  document.getElementById('r-spk-state').className='toggle-state '+(on?'on':'off');
+}
+function toggleRemoteMic(){
+  if(!controlChannel||controlChannel.readyState!=='open'){const cb=document.getElementById('r-mic-toggle');cb.checked=!cb.checked;return}
+  const on=document.getElementById('r-mic-toggle').checked;
+  document.getElementById('r-mic-state').textContent=on?'ON':'OFF';
+  document.getElementById('r-mic-state').className='toggle-state '+(on?'on':'off');
+  controlChannel.send(on?'mic:unmute':'mic:mute');
+}
+function handleReceiverMsg(msg){
+  if(msg.startsWith('switched:')){
+    const face=msg.split(':')[1];
+    const label=face==='user'?'インカメラ（前面）':'アウトカメラ（背面）';
+    document.getElementById('r-switch-msg').textContent=`📷 現在: ${label}`;
+    setActiveCamBtn(face==='user'?'front':'back');
+  }
+  if(msg==='mic:on'){document.getElementById('r-mic-toggle').checked=true;document.getElementById('r-mic-state').textContent='ON';document.getElementById('r-mic-state').className='toggle-state on'}
+  if(msg==='mic:off'){document.getElementById('r-mic-toggle').checked=false;document.getElementById('r-mic-state').textContent='OFF';document.getElementById('r-mic-state').className='toggle-state off'}
+}
+function setActiveCamBtn(w){document.getElementById('btn-front').classList.toggle('active',w==='front');document.getElementById('btn-back').classList.toggle('active',w==='back')}
+
+// ── 録画 ──────────────────────────────────────────────────
+function getMimeType(){return['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported(t))||'video/webm'}
+function startRecording(){
+  if(!remoteStream){addLog('❌ 映像を受信してから録画してください');return}
+  const bitrate=parseInt(document.getElementById('quality-select').value);
+  const mime=getMimeType();
+  recChunks=[];recChunkCount=0;recStartTime=Date.now();recChunkStartTime=Date.now();wasRecording=true;
+  try{mediaRecorder=new MediaRecorder(remoteStream,{mimeType:mime,videoBitsPerSecond:bitrate})}
+  catch(e){addLog('❌ 録画開始失敗: '+e.message);return}
+  mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0)recChunks.push(e.data)};
+  mediaRecorder.onstop=()=>{if(recChunks.length>0){saveChunk();recChunks=[]}};
+  mediaRecorder.start(1000);
+  document.getElementById('rec-live').style.display='flex';
+  showEl('rec-start-btn',false);showEl('rec-stop-btn',true);
+  document.getElementById('quality-select').disabled=true;
+  document.getElementById('rec-chunk').textContent='0件';
+  addLog(`[${new Date().toLocaleTimeString()}] 録画開始`);
+  recTimerInterval=setInterval(()=>{
+    const el=Math.floor((Date.now()-recStartTime)/1000);
+    document.getElementById('rec-timer').textContent=fmtTime(el);
+    const ce=Math.floor((Date.now()-recChunkStartTime)/1000);
+    const rem=CHUNK_MIN*60-ce;
+    document.getElementById('rec-next').textContent=rem>0?fmtTime(rem):'保存中...';
+    if(ce>=CHUNK_MIN*60)splitChunk();
+  },1000);
+}
+function splitChunk(){
+  recChunkStartTime=Date.now();
+  if(mediaRecorder&&mediaRecorder.state==='recording'){
+    const bitrate=parseInt(document.getElementById('quality-select').value);
+    const mime=getMimeType();
+    mediaRecorder.stop();
+    setTimeout(()=>{
+      if(!remoteStream)return;
+      recChunks=[];
+      try{
+        mediaRecorder=new MediaRecorder(remoteStream,{mimeType:mime,videoBitsPerSecond:bitrate});
+        mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0)recChunks.push(e.data)};
+        mediaRecorder.onstop=()=>{if(recChunks.length>0){saveChunk();recChunks=[]}};
+        mediaRecorder.start(1000);
+        addLog(`[${new Date().toLocaleTimeString()}] 新チャンク開始`);
+      }catch(e){addLog('❌ チャンク分割エラー: '+e.message)}
+    },300);
+  }
+}
+function saveChunk(){
+  recChunkCount++;
+  const blob=new Blob(recChunks,{type:mediaRecorder.mimeType});
+  const sizeMB=(blob.size/1024/1024).toFixed(1);
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`mimamori_${nowStr()}_part${recChunkCount}.webm`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+  document.getElementById('rec-chunk').textContent=`${recChunkCount}件`;
+  addLog(`[${new Date().toLocaleTimeString()}] 保存: part${recChunkCount} (${sizeMB}MB)`);
+}
+function stopRecording(){
+  wasRecording=false;
+  if(recTimerInterval){clearInterval(recTimerInterval);recTimerInterval=null}
+  if(mediaRecorder&&mediaRecorder.state==='recording'){mediaRecorder.stop();addLog(`[${new Date().toLocaleTimeString()}] 録画停止`)}
+  document.getElementById('rec-live').style.display='none';
+  showEl('rec-start-btn',true);showEl('rec-stop-btn',false);
+  const qs=document.getElementById('quality-select');if(qs)qs.disabled=false;
+  document.getElementById('rec-next').textContent='—';
 }
 
+// ── ユーティリティ ────────────────────────────────────────
 function waitICE(pc){
   return new Promise(resolve=>{
     if(pc.iceGatheringState==='complete'){resolve();return}
@@ -311,7 +852,6 @@ function waitICE(pc){
     setTimeout(resolve,8000);
   });
 }
-
 function startVol(stream){
   if(volInterval)clearInterval(volInterval);
   if(audioCtx)try{audioCtx.close()}catch(e){}
