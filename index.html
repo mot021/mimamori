@@ -452,6 +452,7 @@ let audioCtx=null,volInterval=null,controlChannel=null,remoteStream=null;
 let mqttClient=null,sessionId=null;
 let lastConnectedTime=null,reconnectCountdownTimer=null;
 let wasRecording=false;
+let frontCameraId=null,backCameraId=null;
 let mediaRecorder=null,recChunks=[],recChunkCount=0;
 let recStartTime=null,recChunkStartTime=null,recTimerInterval=null;
 const CHUNK_MIN=5;
@@ -555,7 +556,7 @@ async function goSender(){
   showEl('s-step2',false);showEl('s-step3',false);showEl('s-controls',false);showEl('s-reconnect-panel',false);
   document.getElementById('make-offer-btn').disabled=true;
   try{
-    localStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:true});
+    localStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:true});
   }catch(e){
     let msg='❌ カメラ/マイクの許可が必要です';
     if(e.name==='NotAllowedError')msg='❌ カメラが拒否されています。ブラウザ設定から許可してください。';
@@ -563,6 +564,8 @@ async function goSender(){
     setStatus('s-status','error',msg,false);return;
   }
   document.getElementById('local-video').srcObject=localStream;
+  // カメラデバイスを列挙してIDを保存（切り替えの信頼性向上）
+  await enumerateCameras();
   showEl('vol-row',true);startVol(localStream);
   setStatus('s-status','ready','カメラ起動完了。「オファーを作成する」を押してください。',false);
   document.getElementById('make-offer-btn').disabled=false;
@@ -601,6 +604,10 @@ async function applyAnswer(){
     document.getElementById('s-mic-toggle').checked=true;
     document.getElementById('s-mic-state').textContent='ON';
     document.getElementById('s-mic-state').className='toggle-state on';
+    // アウトカメラをデフォルトにセット
+    document.getElementById('s-btn-front').classList.remove('active');
+    document.getElementById('s-btn-back').classList.add('active');
+    document.getElementById('s-switch-msg').textContent='📷 現在: アウトカメラ（背面）';
     if(mqttClient&&mqttClient.connected){
       mqttSubscribe('reconnect_answer',async data=>{
         const d=dec(data);
@@ -682,11 +689,45 @@ async function handleSenderCmd(cmd){
   if(cmd==='mic:mute'){if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=false);document.getElementById('s-mic-toggle').checked=false;document.getElementById('s-mic-state').textContent='OFF';document.getElementById('s-mic-state').className='toggle-state off'}
   if(cmd==='mic:unmute'){if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=true);document.getElementById('s-mic-toggle').checked=true;document.getElementById('s-mic-state').textContent='ON';document.getElementById('s-mic-state').className='toggle-state on'}
 }
-// 子供側がローカルでカメラを切り替える
-async function localSwitchCamera(facingMode,label){
-  setStatus('s-status','waiting',`📷 ${label}に切り替え中...`,true);
+// カメラデバイスを列挙してフロント・バックのIDを保存
+async function enumerateCameras(){
   try{
-    const ns=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:true});
+    const devices=await navigator.mediaDevices.enumerateDevices();
+    const cams=devices.filter(d=>d.kind==='videoinput');
+    frontCameraId=null;backCameraId=null;
+    for(const dev of cams){
+      const label=dev.label.toLowerCase();
+      if(label.includes('front')||label.includes('facing front')||label.includes('フロント')){
+        frontCameraId=dev.deviceId;
+      } else if(label.includes('back')||label.includes('rear')||label.includes('facing back')||label.includes('environment')||label.includes('バック')){
+        backCameraId=dev.deviceId;
+      }
+    }
+    // ラベルで判別できない場合はデバイス順で推測
+    if(!frontCameraId&&!backCameraId){
+      if(cams.length>=2){backCameraId=cams[0].deviceId;frontCameraId=cams[1].deviceId}
+      else if(cams.length===1){backCameraId=cams[0].deviceId}
+    } else if(!frontCameraId&&cams.length>=2){
+      frontCameraId=cams.find(c=>c.deviceId!==backCameraId)?.deviceId||null;
+    } else if(!backCameraId&&cams.length>=2){
+      backCameraId=cams.find(c=>c.deviceId!==frontCameraId)?.deviceId||null;
+    }
+    console.log('Front:',frontCameraId,'Back:',backCameraId);
+  }catch(e){console.warn('カメラ列挙失敗',e)}
+}
+
+// カメラ切り替え共通処理
+async function doSwitchCamera(facingMode,label){
+  try{
+    let constraints;
+    if(facingMode==='user'&&frontCameraId){
+      constraints={video:{deviceId:{exact:frontCameraId}},audio:true};
+    } else if(facingMode==='environment'&&backCameraId){
+      constraints={video:{deviceId:{exact:backCameraId}},audio:true};
+    } else {
+      constraints={video:{facingMode:{ideal:facingMode}},audio:true};
+    }
+    const ns=await navigator.mediaDevices.getUserMedia(constraints);
     if(senderPC){
       const senders=senderPC.getSenders();
       const vS=senders.find(s=>s.track&&s.track.kind==='video');
@@ -699,38 +740,29 @@ async function localSwitchCamera(facingMode,label){
     localStream.getTracks().forEach(t=>t.stop());
     localStream=ns;
     document.getElementById('local-video').srcObject=localStream;
-    // ボタンのアクティブ状態を更新
     document.getElementById('s-btn-front').classList.toggle('active',facingMode==='user');
     document.getElementById('s-btn-back').classList.toggle('active',facingMode==='environment');
     document.getElementById('s-switch-msg').textContent=`📷 現在: ${label}`;
     setStatus('s-status','connected',`✅ 接続中 — 現在: ${label}`,false);
-    // 保護者側にも通知
     if(controlChannel&&controlChannel.readyState==='open') controlChannel.send('switched:'+facingMode);
+    return true;
   }catch(e){
-    setStatus('s-status','error','❌ カメラ切り替えに失敗しました',false);
+    console.warn('カメラ切替失敗',e);
+    return false;
   }
+}
+
+// 子供側がローカルでカメラを切り替える
+async function localSwitchCamera(facingMode,label){
+  setStatus('s-status','waiting',`📷 ${label}に切り替え中...`,true);
+  const ok=await doSwitchCamera(facingMode,label);
+  if(!ok) setStatus('s-status','error','❌ カメラ切り替えに失敗しました。このカメラは使用できません。',false);
 }
 
 async function switchCamera(facingMode,label){
   setStatus('s-status','waiting',`📷 ${label}に切り替え中...`,true);
-  try{
-    const ns=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:true});
-    const senders=senderPC.getSenders();
-    const vS=senders.find(s=>s.track&&s.track.kind==='video');
-    const aS=senders.find(s=>s.track&&s.track.kind==='audio');
-    if(vS)await vS.replaceTrack(ns.getVideoTracks()[0]);
-    if(aS)await aS.replaceTrack(ns.getAudioTracks()[0]);
-    const micOn=document.getElementById('s-mic-toggle').checked;
-    ns.getAudioTracks().forEach(t=>t.enabled=micOn);
-    localStream.getTracks().forEach(t=>t.stop());
-    localStream=ns;
-    document.getElementById('local-video').srcObject=localStream;
-    setStatus('s-status','connected',`✅ 接続中 — 現在: ${label}`,false);
-    document.getElementById('s-switch-msg').textContent=`📷 現在: ${label}`;
-    document.getElementById('s-btn-front').classList.toggle('active',facingMode==='user');
-    document.getElementById('s-btn-back').classList.toggle('active',facingMode==='environment');
-    if(controlChannel&&controlChannel.readyState==='open')controlChannel.send('switched:'+facingMode);
-  }catch(e){setStatus('s-status','error','❌ カメラ切り替えに失敗しました',false)}
+  const ok=await doSwitchCamera(facingMode,label);
+  if(!ok) setStatus('s-status','error','❌ カメラ切り替えに失敗しました',false);
 }
 
 // ── RECEIVER ─────────────────────────────────────────────
