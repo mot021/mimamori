@@ -245,22 +245,35 @@ textarea:focus{border-color:var(--border2)}
 
   <div id="s-controls" style="display:none">
     <hr class="divider">
-    <div class="card">
-      <p class="card-label">音声コントロール</p>
-      <div class="toggle-row" style="border-top:none;padding-top:0">
-        <div>
-          <div class="toggle-label">🎤 マイク送信</div>
-          <div class="toggle-sub" style="font-size:11px;color:var(--text2);margin-top:2px">OFFにすると保護者に音声が届きません</div>
-        </div>
-        <div class="toggle-wrap">
-          <span class="toggle-state on" id="s-mic-state">ON</span>
-          <label class="toggle">
-            <input type="checkbox" id="s-mic-toggle" checked onchange="toggleSenderMic()">
-            <div class="toggle-track"></div><div class="toggle-thumb"></div>
-          </label>
-        </div>
+    <!-- カメラ切り替え -->
+    <p style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">📷 カメラ切り替え</p>
+    <div class="cam-ctrl" style="margin-bottom:8px">
+      <button class="cam-btn active" id="s-btn-front" onclick="localSwitchCamera('user','インカメラ（前面）')">
+        <span class="cam-btn-icon">🤳</span>
+        <span class="cam-btn-label">インカメラ</span>
+        <span class="cam-btn-sub">顔・前方向</span>
+      </button>
+      <button class="cam-btn" id="s-btn-back" onclick="localSwitchCamera('environment','アウトカメラ（背面）')">
+        <span class="cam-btn-icon">📷</span>
+        <span class="cam-btn-label">アウトカメラ</span>
+        <span class="cam-btn-sub">背面・外向き</span>
+      </button>
+    </div>
+    <p id="s-switch-msg" style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:1rem">📷 現在: インカメラ</p>
+    <!-- 音声コントロール -->
+    <p style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">🎤 音声コントロール</p>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div class="toggle-label">🎤 マイク送信</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">OFFにすると保護者に音声が届きません</div>
       </div>
-      <p id="s-switch-msg" style="font-size:12px;color:var(--text2);text-align:center;padding:6px 0 0">📷 現在: インカメラ</p>
+      <div class="toggle-wrap">
+        <span class="toggle-state on" id="s-mic-state">ON</span>
+        <label class="toggle">
+          <input type="checkbox" id="s-mic-toggle" checked onchange="toggleSenderMic()">
+          <div class="toggle-track"></div><div class="toggle-thumb"></div>
+        </label>
+      </div>
     </div>
   </div>
 
@@ -334,7 +347,13 @@ textarea:focus{border-color:var(--border2)}
     </div>
     <div class="ctrl-body">
 
-      <!-- カメラ切り替え -->
+      <!-- 受信映像 -->
+      <div class="ctrl-section">
+        <p class="ctrl-section-label">📺 受信映像</p>
+        <video id="ctrl-video" autoplay playsinline muted style="width:100%;border-radius:var(--rs);background:#000;aspect-ratio:4/3;object-fit:cover;display:block"></video>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
       <div class="ctrl-section">
         <p class="ctrl-section-label">📷 カメラ切り替え</p>
         <div class="cam-ctrl">
@@ -456,6 +475,12 @@ function genSessionId(){return Math.random().toString(36).substr(2,10).toUpperCa
 
 // ── コントロールパネル ────────────────────────────────────
 function openCtrl(){
+  // 操作パネルの映像にも同じストリームをセット
+  const ctrlVideo=document.getElementById('ctrl-video');
+  if(remoteStream&&ctrlVideo){
+    ctrlVideo.srcObject=remoteStream;
+    ctrlVideo.play().catch(()=>{});
+  }
   const bd=document.getElementById('ctrl-backdrop');
   bd.classList.add('open');
   document.body.style.overflow='hidden';
@@ -657,6 +682,35 @@ async function handleSenderCmd(cmd){
   if(cmd==='mic:mute'){if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=false);document.getElementById('s-mic-toggle').checked=false;document.getElementById('s-mic-state').textContent='OFF';document.getElementById('s-mic-state').className='toggle-state off'}
   if(cmd==='mic:unmute'){if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=true);document.getElementById('s-mic-toggle').checked=true;document.getElementById('s-mic-state').textContent='ON';document.getElementById('s-mic-state').className='toggle-state on'}
 }
+// 子供側がローカルでカメラを切り替える
+async function localSwitchCamera(facingMode,label){
+  setStatus('s-status','waiting',`📷 ${label}に切り替え中...`,true);
+  try{
+    const ns=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:true});
+    if(senderPC){
+      const senders=senderPC.getSenders();
+      const vS=senders.find(s=>s.track&&s.track.kind==='video');
+      const aS=senders.find(s=>s.track&&s.track.kind==='audio');
+      if(vS)await vS.replaceTrack(ns.getVideoTracks()[0]);
+      if(aS)await aS.replaceTrack(ns.getAudioTracks()[0]);
+    }
+    const micOn=document.getElementById('s-mic-toggle').checked;
+    ns.getAudioTracks().forEach(t=>t.enabled=micOn);
+    localStream.getTracks().forEach(t=>t.stop());
+    localStream=ns;
+    document.getElementById('local-video').srcObject=localStream;
+    // ボタンのアクティブ状態を更新
+    document.getElementById('s-btn-front').classList.toggle('active',facingMode==='user');
+    document.getElementById('s-btn-back').classList.toggle('active',facingMode==='environment');
+    document.getElementById('s-switch-msg').textContent=`📷 現在: ${label}`;
+    setStatus('s-status','connected',`✅ 接続中 — 現在: ${label}`,false);
+    // 保護者側にも通知
+    if(controlChannel&&controlChannel.readyState==='open') controlChannel.send('switched:'+facingMode);
+  }catch(e){
+    setStatus('s-status','error','❌ カメラ切り替えに失敗しました',false);
+  }
+}
+
 async function switchCamera(facingMode,label){
   setStatus('s-status','waiting',`📷 ${label}に切り替え中...`,true);
   try{
@@ -673,6 +727,8 @@ async function switchCamera(facingMode,label){
     document.getElementById('local-video').srcObject=localStream;
     setStatus('s-status','connected',`✅ 接続中 — 現在: ${label}`,false);
     document.getElementById('s-switch-msg').textContent=`📷 現在: ${label}`;
+    document.getElementById('s-btn-front').classList.toggle('active',facingMode==='user');
+    document.getElementById('s-btn-back').classList.toggle('active',facingMode==='environment');
     if(controlChannel&&controlChannel.readyState==='open')controlChannel.send('switched:'+facingMode);
   }catch(e){setStatus('s-status','error','❌ カメラ切り替えに失敗しました',false)}
 }
