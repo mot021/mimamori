@@ -328,7 +328,10 @@ textarea:focus{border-color:var(--border2)}
     <hr class="divider">
     <div class="video-status-bar">
       <p style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">受信映像</p>
-      <div class="rec-live" id="rec-live"><span class="rec-live-dot"></span>録画中</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="rec-live" id="rec-live"><span class="rec-live-dot"></span>録画中</div>
+        <button onclick="openCtrlWindow()" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:5px 10px;font-size:12px;cursor:pointer;color:var(--text2);white-space:nowrap">🪟 別ウィンドウ</button>
+      </div>
     </div>
     <div class="video-wrapper" onclick="openCtrl()" id="video-wrapper">
       <video id="remote-video" autoplay playsinline></video>
@@ -453,6 +456,7 @@ let mqttClient=null,sessionId=null;
 let lastConnectedTime=null,reconnectCountdownTimer=null;
 let wasRecording=false;
 let frontCameraId=null,backCameraId=null;
+let popupWin=null,ctrlBC=null,frameInterval=null;
 let mediaRecorder=null,recChunks=[],recChunkCount=0;
 let recStartTime=null,recChunkStartTime=null,recTimerInterval=null;
 const CHUNK_MIN=5;
@@ -474,7 +478,187 @@ function copyText(taId,btnId){
 }
 function genSessionId(){return Math.random().toString(36).substr(2,10).toUpperCase()}
 
-// ── コントロールパネル ────────────────────────────────────
+// ── 別ウィンドウ（操作パネル）────────────────────────────
+function openCtrlWindow(){
+  if(popupWin&&!popupWin.closed){popupWin.focus();return}
+  if(ctrlBC)ctrlBC.close();
+  ctrlBC=new BroadcastChannel('mimamori_ctrl');
+  ctrlBC.onmessage=e=>{
+    const d=e.data;
+    if(d.type==='cmd'){
+      if(d.cmd==='camera:front') sendCmd('camera:front');
+      if(d.cmd==='camera:back') sendCmd('camera:back');
+      if(d.cmd==='spk:on'){document.getElementById('r-spk-toggle').checked=true;toggleReceiverSpk()}
+      if(d.cmd==='spk:off'){document.getElementById('r-spk-toggle').checked=false;toggleReceiverSpk()}
+      if(d.cmd==='mic:on'){document.getElementById('r-mic-toggle').checked=true;toggleRemoteMic()}
+      if(d.cmd==='mic:off'){document.getElementById('r-mic-toggle').checked=false;toggleRemoteMic()}
+      if(d.cmd==='rec:start') startRecording();
+      if(d.cmd==='rec:stop') stopRecording();
+    }
+    if(d.type==='ready') broadcastState();
+  };
+  const html=buildPopupHTML();
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  popupWin=window.open(url,'mimamori_ctrl','width=480,height=760,resizable=yes,scrollbars=yes');
+  if(!popupWin){alert('ポップアップがブロックされました。ブラウザの設定でポップアップを許可してください。');return}
+  startFrameSharing();
+  const ck=setInterval(()=>{if(popupWin&&popupWin.closed){clearInterval(ck);stopFrameSharing()}},1000);
+}
+function startFrameSharing(){
+  stopFrameSharing();
+  const canvas=document.createElement('canvas');
+  const ctx2=canvas.getContext('2d');
+  frameInterval=setInterval(()=>{
+    if(!ctrlBC||!popupWin||popupWin.closed){stopFrameSharing();return}
+    const video=document.getElementById('remote-video');
+    if(!video||!video.videoWidth)return;
+    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+    ctx2.drawImage(video,0,0);
+    createImageBitmap(canvas).then(bmp=>{try{ctrlBC.postMessage({type:'frame',bitmap:bmp},[bmp])}catch(e){}});
+    broadcastState();
+  },100);
+}
+function stopFrameSharing(){if(frameInterval){clearInterval(frameInterval);frameInterval=null}}
+function broadcastState(){
+  if(!ctrlBC)return;
+  const spk=document.getElementById('r-spk-toggle');
+  const mic=document.getElementById('r-mic-toggle');
+  ctrlBC.postMessage({type:'state',
+    camMsg:document.getElementById('r-switch-msg')?.textContent||'',
+    spkOn:spk?spk.checked:true,micOn:mic?mic.checked:true,
+    recActive:!!(mediaRecorder&&mediaRecorder.state==='recording'),
+    recTimer:document.getElementById('rec-timer')?.textContent||'00:00',
+    recChunk:document.getElementById('rec-chunk')?.textContent||'—',
+    recNext:document.getElementById('rec-next')?.textContent||'—',
+    recLog:document.getElementById('rec-log')?.textContent||''
+  });
+}
+function buildPopupHTML(){
+  return`<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>見守りアプリ — 操作パネル</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0efeb;--border:rgba(0,0,0,.12);--text:#1a1a18;--text2:#6b6b68;--text3:#9a9a96;--accent:#1a1a18;--accent-fg:#fff;--green-bg:#eaf3de;--green-text:#3b6d11;--green-border:rgba(59,109,17,.3);--red-bg:#fcebeb;--red-text:#a32d2d;--red-border:rgba(163,45,45,.3);--r:10px;--rs:7px}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--surface:#2a2a28;--surface2:#232321;--border:rgba(255,255,255,.1);--text:#f0efe9;--text2:#a8a8a3;--text3:#6b6b67;--accent:#f0efe9;--accent-fg:#1c1c1a;--green-text:#c0dd97;--green-border:rgba(192,221,151,.25);--red-bg:#501313;--red-text:#f7c1c1;--red-border:rgba(247,193,193,.25)}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;background:var(--bg);color:var(--text)}
+.titlebar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.titlebar-title{font-size:14px;font-weight:700}
+.rec-live{display:none;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--red-text);background:var(--red-bg);border:1px solid var(--red-border);padding:3px 8px;border-radius:99px}
+.rec-live.on{display:flex}
+.rec-dot{width:7px;height:7px;border-radius:50%;background:var(--red-text);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.body{padding:14px}
+canvas{width:100%;border-radius:var(--r);background:#000;display:block;margin-bottom:12px}
+.section{margin-bottom:16px}
+.section-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.cam-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+.cam-btn{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rs);padding:10px 8px;text-align:center;cursor:pointer}
+.cam-btn.active{border-color:var(--accent);background:var(--surface)}
+.cam-btn-icon{font-size:20px;display:block;margin-bottom:3px}
+.cam-btn-label{font-size:12px;font-weight:600}
+.cam-btn-sub{font-size:11px;color:var(--text2)}
+.cam-msg{font-size:12px;color:var(--text2);text-align:center;margin-top:6px}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--border)}
+.toggle-row:first-child{border-top:none;padding-top:0}
+.toggle-label{font-size:13px;font-weight:500}
+.toggle-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.toggle-wrap{display:flex;align-items:center;gap:8px}
+.toggle-state{font-size:12px;font-weight:600}
+.toggle-state.on{color:var(--green-text)}.toggle-state.off{color:var(--red-text)}
+.toggle{position:relative;width:44px;height:26px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:99px;cursor:pointer;transition:background .2s}
+.toggle input:checked+.toggle-track{background:var(--green-text);border-color:var(--green-text)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle input:checked~.toggle-thumb{transform:translateX(18px)}
+.rec-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}
+.rec-stat{background:var(--surface2);border-radius:var(--rs);padding:8px;text-align:center}
+.rec-stat-val{font-size:14px;font-weight:700;font-family:'SF Mono',Menlo,monospace}
+.rec-stat-lbl{font-size:10px;color:var(--text3);margin-top:2px}
+.btn-row{display:flex;gap:8px;margin-bottom:8px}
+.btn-p{background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-d{background:var(--red-text);color:#fff;border:none;border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.rec-log{background:var(--surface2);border-radius:var(--rs);padding:8px;font-size:11px;font-family:'SF Mono',Menlo,monospace;color:var(--text2);max-height:70px;overflow-y:auto;line-height:1.6;white-space:pre-wrap}
+.divider{border:none;border-top:1px solid var(--border);margin:0 0 16px}
+</style></head><body>
+<div class="titlebar">
+  <span class="titlebar-title">⚙️ 操作パネル</span>
+  <div class="rec-live" id="rl"><span class="rec-dot"></span>録画中</div>
+</div>
+<div class="body">
+  <canvas id="vc"></canvas>
+  <div class="section">
+    <p class="section-label">📷 カメラ切り替え</p>
+    <div class="cam-grid">
+      <div class="cam-btn" id="bf" onclick="cmd('camera:front')"><span class="cam-btn-icon">🤳</span><span class="cam-btn-label">インカメラ</span><span class="cam-btn-sub">顔・前方向</span></div>
+      <div class="cam-btn active" id="bb" onclick="cmd('camera:back')"><span class="cam-btn-icon">📷</span><span class="cam-btn-label">アウトカメラ</span><span class="cam-btn-sub">背面・外向き</span></div>
+    </div>
+    <p class="cam-msg" id="cm">📷 現在: アウトカメラ（背面）</p>
+  </div>
+  <div class="divider"></div>
+  <div class="section">
+    <p class="section-label">🔊 音声コントロール</p>
+    <div class="toggle-row" style="border-top:none;padding-top:0">
+      <div><div class="toggle-label">🔊 受信音声（このPC）</div><div class="toggle-sub">OFFにするとスピーカーを消音</div></div>
+      <div class="toggle-wrap"><span class="toggle-state on" id="ss">ON</span>
+        <label class="toggle"><input type="checkbox" id="st" checked onchange="cmd(this.checked?'spk:on':'spk:off');us('ss',this.checked)"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">🎤 子供のマイク</div><div class="toggle-sub">OFFにするとスマホのマイクを停止</div></div>
+      <div class="toggle-wrap"><span class="toggle-state on" id="ms">ON</span>
+        <label class="toggle"><input type="checkbox" id="mt" checked onchange="cmd(this.checked?'mic:on':'mic:off');us('ms',this.checked)"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="section">
+    <p class="section-label">⏺ 録画</p>
+    <div class="rec-grid">
+      <div class="rec-stat"><div class="rec-stat-val" id="rt">00:00</div><div class="rec-stat-lbl">経過時間</div></div>
+      <div class="rec-stat"><div class="rec-stat-val" id="rc">—</div><div class="rec-stat-lbl">保存済み</div></div>
+      <div class="rec-stat"><div class="rec-stat-val" id="rn">—</div><div class="rec-stat-lbl">次の保存まで</div></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-p" id="rs" onclick="cmd('rec:start')">⏺ 録画開始</button>
+      <button class="btn-d" id="rp" onclick="cmd('rec:stop')" style="display:none">⏹ 停止・保存</button>
+    </div>
+    <div class="rec-log" id="rl2">メインウィンドウの状態を待っています...</div>
+  </div>
+</div>
+<script>
+const bc=new BroadcastChannel('mimamori_ctrl');
+bc.postMessage({type:'ready'});
+const canvas=document.getElementById('vc');
+const ctx=canvas.getContext('2d');
+function cmd(c){bc.postMessage({type:'cmd',cmd:c})}
+function us(id,on){const el=document.getElementById(id);if(el){el.textContent=on?'ON':'OFF';el.className='toggle-state '+(on?'on':'off')}}
+bc.onmessage=e=>{
+  const d=e.data;
+  if(d.type==='frame'){canvas.width=d.bitmap.width;canvas.height=d.bitmap.height;ctx.drawImage(d.bitmap,0,0);d.bitmap.close()}
+  if(d.type==='state'){
+    const isFront=d.camMsg&&d.camMsg.includes('インカメラ');
+    document.getElementById('cm').textContent=d.camMsg;
+    document.getElementById('bf').className='cam-btn'+(isFront?' active':'');
+    document.getElementById('bb').className='cam-btn'+(isFront?'':' active');
+    document.getElementById('st').checked=d.spkOn;us('ss',d.spkOn);
+    document.getElementById('mt').checked=d.micOn;us('ms',d.micOn);
+    document.getElementById('rt').textContent=d.recTimer;
+    document.getElementById('rc').textContent=d.recChunk;
+    document.getElementById('rn').textContent=d.recNext;
+    document.getElementById('rl2').textContent=d.recLog;
+    document.getElementById('rl').className='rec-live'+(d.recActive?' on':'');
+    document.getElementById('rs').style.display=d.recActive?'none':'';
+    document.getElementById('rp').style.display=d.recActive?'':'none';
+  }
+};
+window.onbeforeunload=()=>bc.close();
+<\/script></body></html>`;
+}
+
+// ── コントロールパネル（フローティング）────────────────────
 function openCtrl(){
   // 操作パネルの映像にも同じストリームをセット
   const ctrlVideo=document.getElementById('ctrl-video');
@@ -692,9 +876,19 @@ async function handleSenderCmd(cmd){
 // カメラデバイスを列挙してフロント・バックのIDを保存
 async function enumerateCameras(){
   try{
+    // 現在のストリームのトラック設定から背面カメラIDを確実に取得
+    if(localStream){
+      const track=localStream.getVideoTracks()[0];
+      const settings=track.getSettings();
+      if(settings.deviceId) backCameraId=settings.deviceId;
+    }
     const devices=await navigator.mediaDevices.enumerateDevices();
     const cams=devices.filter(d=>d.kind==='videoinput');
-    frontCameraId=null;backCameraId=null;
+    // 背面カメラ以外を前面カメラとして設定
+    if(cams.length>=2){
+      frontCameraId=cams.find(c=>c.deviceId!==backCameraId)?.deviceId||null;
+    }
+    // ラベルで上書き確認（より確実な場合）
     for(const dev of cams){
       const label=dev.label.toLowerCase();
       if(label.includes('front')||label.includes('facing front')||label.includes('フロント')){
@@ -702,15 +896,6 @@ async function enumerateCameras(){
       } else if(label.includes('back')||label.includes('rear')||label.includes('facing back')||label.includes('environment')||label.includes('バック')){
         backCameraId=dev.deviceId;
       }
-    }
-    // ラベルで判別できない場合はデバイス順で推測
-    if(!frontCameraId&&!backCameraId){
-      if(cams.length>=2){backCameraId=cams[0].deviceId;frontCameraId=cams[1].deviceId}
-      else if(cams.length===1){backCameraId=cams[0].deviceId}
-    } else if(!frontCameraId&&cams.length>=2){
-      frontCameraId=cams.find(c=>c.deviceId!==backCameraId)?.deviceId||null;
-    } else if(!backCameraId&&cams.length>=2){
-      backCameraId=cams.find(c=>c.deviceId!==frontCameraId)?.deviceId||null;
     }
     console.log('Front:',frontCameraId,'Back:',backCameraId);
   }catch(e){console.warn('カメラ列挙失敗',e)}
