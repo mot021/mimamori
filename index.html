@@ -446,7 +446,10 @@ textarea:focus{border-color:var(--border2)}
     <hr class="divider">
     <div class="video-status-bar">
       <p style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">受信映像</p>
-      <div class="rec-live" id="rec-live"><span class="rec-live-dot"></span>録画中</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="rec-live" id="rec-live"><span class="rec-live-dot"></span>録画中</div>
+        <button class="rotate-btn" onclick="rotateVideo()" style="background:none;border:1px solid var(--border);border-radius:99px;padding:3px 10px;font-size:12px;cursor:pointer;color:var(--text2);white-space:nowrap">🔄 0°</button>
+      </div>
     </div>
     <div class="video-wrapper" onclick="openCtrl()" id="video-wrapper">
       <video id="remote-video" autoplay playsinline style="display:none"></video>
@@ -472,7 +475,10 @@ textarea:focus{border-color:var(--border2)}
       <div class="ctrl-section">
         <p class="ctrl-section-label" style="display:flex;align-items:center;justify-content:space-between">
           <span>📺 受信映像</span>
-          <span style="font-size:10px;font-weight:400;color:var(--text3)">クリックでPiP</span>
+          <span style="display:flex;align-items:center;gap:6px">
+            <button class="rotate-btn" onclick="rotateVideo()" style="background:none;border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-size:11px;cursor:pointer;color:var(--text2)">🔄 0°</button>
+            <span style="font-size:10px;font-weight:400;color:var(--text3)">クリックでPiP</span>
+          </span>
         </p>
         <!-- videoは非表示（ストリーム保持・PiP用）、canvasで表示（ホバー暗転なし） -->
         <video id="ctrl-video" autoplay playsinline muted style="display:none"></video>
@@ -627,7 +633,7 @@ let mqttClient=null,sessionId=null;
 let lastConnectedTime=null,reconnectCountdownTimer=null;
 let wasRecording=false;
 let frontCameraId=null,backCameraId=null;
-let tsAnimFrame=null,canvasStream=null,showTimestamp=true;
+let tsAnimFrame=null,canvasStream=null,showTimestamp=true,rotationDeg=0;
 let mediaRecorder=null,recChunks=[],recChunkCount=0;
 let recStartTime=null,recChunkStartTime=null,recTimerInterval=null;
 const CHUNK_MIN=5;
@@ -1120,10 +1126,17 @@ function startTimestampOverlay(){
   function draw(){
     tsAnimFrame=requestAnimationFrame(draw);
     if(!video.videoWidth)return;
-    if(canvas.width!==video.videoWidth) canvas.width=video.videoWidth;
-    if(canvas.height!==video.videoHeight) canvas.height=video.videoHeight;
-    // 映像フレームを描画
-    ctx.drawImage(video,0,0);
+    const vw=video.videoWidth,vh=video.videoHeight;
+    const rotated=rotationDeg===90||rotationDeg===270;
+    const cw=rotated?vh:vw,ch=rotated?vw:vh;
+    if(canvas.width!==cw) canvas.width=cw;
+    if(canvas.height!==ch) canvas.height=ch;
+    // 回転して描画
+    ctx.save();
+    ctx.translate(cw/2,ch/2);
+    ctx.rotate(rotationDeg*Math.PI/180);
+    ctx.drawImage(video,-vw/2,-vh/2,vw,vh);
+    ctx.restore();
     // 時刻オーバーレイ
     if(showTimestamp){
       const now=new Date();
@@ -1131,20 +1144,18 @@ function startTimestampOverlay(){
         year:'numeric',month:'2-digit',day:'2-digit',
         hour:'2-digit',minute:'2-digit',second:'2-digit'
       });
-      const fh=Math.max(14,Math.floor(canvas.height*0.044));
+      const fh=Math.max(14,Math.floor(ch*0.044));
       ctx.font=`bold ${fh}px 'SF Mono',Menlo,monospace`;
       const tw=ctx.measureText(timeStr).width;
       const pad=8;
-      const bx=pad,by=canvas.height-fh-pad*2.5;
-      // 背景（半透明）
+      const bx=pad,by=ch-fh-pad*2.5;
       ctx.fillStyle='rgba(0,0,0,0.55)';
       ctx.beginPath();
       if(ctx.roundRect){ctx.roundRect(bx,by,tw+pad*2,fh+pad,4)}
       else{ctx.rect(bx,by,tw+pad*2,fh+pad)}
       ctx.fill();
-      // テキスト
       ctx.fillStyle='#ffffff';
-      ctx.fillText(timeStr,bx+pad,canvas.height-pad*1.2);
+      ctx.fillText(timeStr,bx+pad,ch-pad*1.2);
     }
   }
   draw();
@@ -1158,6 +1169,15 @@ function startTimestampOverlay(){
 function stopTimestampOverlay(){
   if(tsAnimFrame){cancelAnimationFrame(tsAnimFrame);tsAnimFrame=null}
   canvasStream=null;
+}
+
+// 映像回転（ts-canvas → captureStream経由でPiPにも自動反映）
+function rotateVideo(){
+  rotationDeg=(rotationDeg+90)%360;
+  document.querySelectorAll('.rotate-btn').forEach(btn=>{
+    btn.textContent=`🔄 ${rotationDeg}°`;
+    btn.style.borderColor=rotationDeg!==0?'var(--accent)':'var(--border)';
+  });
 }
 
 function toggleTimestamp(){
