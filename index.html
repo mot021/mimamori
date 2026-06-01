@@ -441,7 +441,7 @@ textarea:focus{border-color:var(--border2)}
       <p style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">受信映像</p>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="rec-live" id="rec-live"><span class="rec-live-dot"></span>録画中</div>
-        <button onclick="openCtrlWindow()" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:5px 10px;font-size:12px;cursor:pointer;color:var(--text2);white-space:nowrap">🪟 別ウィンドウ</button>
+        <button onclick="openCtrlWindow()" id="popup-btn" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:5px 10px;font-size:12px;cursor:pointer;color:var(--text2);white-space:nowrap;transition:color .2s,border-color .2s">🪟 別ウィンドウ</button>
       </div>
     </div>
     <div class="video-wrapper" onclick="openCtrl()" id="video-wrapper">
@@ -615,7 +615,7 @@ let mqttClient=null,sessionId=null;
 let lastConnectedTime=null,reconnectCountdownTimer=null;
 let wasRecording=false;
 let frontCameraId=null,backCameraId=null;
-let popupWin=null,ctrlBC=null,frameInterval=null;
+let popupWins=[],ctrlBC=null,frameInterval=null;
 let tsAnimFrame=null,canvasStream=null,showTimestamp=true;
 let mediaRecorder=null,recChunks=[],recChunkCount=0;
 let recStartTime=null,recChunkStartTime=null,recTimerInterval=null;
@@ -1158,37 +1158,59 @@ function toggleTimestamp(){
 
 // ── 別ウィンドウ（操作パネル）────────────────────────────
 function openCtrlWindow(){
-  if(popupWin&&!popupWin.closed){popupWin.focus();return}
-  if(ctrlBC)ctrlBC.close();
-  ctrlBC=new BroadcastChannel('mimamori_ctrl');
-  ctrlBC.onmessage=e=>{
-    const d=e.data;
-    if(d.type==='cmd'){
-      if(d.cmd==='camera:front') sendCmd('camera:front');
-      if(d.cmd==='camera:back') sendCmd('camera:back');
-      if(d.cmd==='spk:on'){document.getElementById('r-spk-toggle').checked=true;toggleReceiverSpk()}
-      if(d.cmd==='spk:off'){document.getElementById('r-spk-toggle').checked=false;toggleReceiverSpk()}
-      if(d.cmd==='mic:on'){document.getElementById('r-mic-toggle').checked=true;toggleRemoteMic()}
-      if(d.cmd==='mic:off'){document.getElementById('r-mic-toggle').checked=false;toggleRemoteMic()}
-      if(d.cmd==='rec:start') startRecording();
-      if(d.cmd==='rec:stop') stopRecording();
-    }
-    if(d.type==='ready') broadcastState();
-  };
+  // 閉じられたウィンドウを整理
+  popupWins=popupWins.filter(w=>w&&!w.closed);
+  if(popupWins.length>=2){
+    popupWins.forEach(w=>{try{w.focus()}catch(e){}});
+    alert('操作パネルは最大2つまでです。既存のウィンドウを閉じてから開いてください。');
+    return;
+  }
+  if(!ctrlBC){
+    ctrlBC=new BroadcastChannel('mimamori_ctrl');
+    ctrlBC.onmessage=e=>{
+      const d=e.data;
+      if(d.type==='cmd'){
+        if(d.cmd==='camera:front') sendCmd('camera:front');
+        if(d.cmd==='camera:back') sendCmd('camera:back');
+        if(d.cmd==='spk:on'){document.getElementById('r-spk-toggle').checked=true;toggleReceiverSpk()}
+        if(d.cmd==='spk:off'){document.getElementById('r-spk-toggle').checked=false;toggleReceiverSpk()}
+        if(d.cmd==='mic:on'){document.getElementById('r-mic-toggle').checked=true;toggleRemoteMic()}
+        if(d.cmd==='mic:off'){document.getElementById('r-mic-toggle').checked=false;toggleRemoteMic()}
+        if(d.cmd==='rec:start') startRecording();
+        if(d.cmd==='rec:stop') stopRecording();
+      }
+      if(d.type==='ready') broadcastState();
+    };
+  }
   const html=buildPopupHTML();
   const blob=new Blob([html],{type:'text/html'});
   const url=URL.createObjectURL(blob);
-  // 新しいタブで開く（ユーザーが自由に移動・リサイズ可能）
-  popupWin=window.open(url,'_blank');
-  if(!popupWin){alert('ポップアップがブロックされました。ブラウザの設定でポップアップを許可してください。');return}
+  const win=window.open(url,'_blank');
+  if(!win){alert('ポップアップがブロックされました。ブラウザの設定でポップアップを許可してください。');return}
+  popupWins.push(win);
   startFrameSharing();
-  const ck=setInterval(()=>{if(popupWin&&popupWin.closed){clearInterval(ck);stopFrameSharing()}},1000);
+  updatePopupBtn();
+  // 閉じられたら自動整理
+  const ck=setInterval(()=>{
+    popupWins=popupWins.filter(w=>w&&!w.closed);
+    updatePopupBtn();
+    if(popupWins.length===0){clearInterval(ck);stopFrameSharing()}
+  },1000);
+}
+
+function updatePopupBtn(){
+  const btn=document.getElementById('popup-btn');
+  if(!btn)return;
+  const n=popupWins.filter(w=>w&&!w.closed).length;
+  btn.textContent=n===0?'🪟 別ウィンドウ':`🪟 別ウィンドウ (${n}/2)`;
+  btn.style.borderColor=n>0?'var(--green-text)':'var(--border)';
+  btn.style.color=n>0?'var(--green-text)':'var(--text2)';
 }
 function startFrameSharing(){
   stopFrameSharing();
   frameInterval=setInterval(()=>{
-    if(!ctrlBC||!popupWin||popupWin.closed){stopFrameSharing();return}
-    // 時刻オーバーレイ済みキャンバスを使用
+    popupWins=popupWins.filter(w=>w&&!w.closed);
+    if(!ctrlBC||popupWins.length===0){stopFrameSharing();return}
     const canvas=document.getElementById('ts-canvas');
     if(!canvas||!canvas.width)return;
     createImageBitmap(canvas).then(bmp=>{
@@ -1458,6 +1480,8 @@ function cleanup(){
   if(senderPC){try{senderPC.close()}catch(e){}senderPC=null}
   if(receiverPC){try{receiverPC.close()}catch(e){}receiverPC=null}
   if(mqttClient){try{mqttClient.end()}catch(e){}mqttClient=null}
+  popupWins.forEach(w=>{try{if(w&&!w.closed)w.close()}catch(e){}});
+  popupWins=[];
   controlChannel=null;remoteStream=null;sessionId=null;lastConnectedTime=null;
 }
 
