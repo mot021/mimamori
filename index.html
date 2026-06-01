@@ -192,6 +192,12 @@ textarea:focus{border-color:var(--border2)}
 .ctrl-section{margin-bottom:1.25rem}
 .ctrl-section-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
 .cam-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0}
+.zoom-row{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px 12px}
+.zoom-btn{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rs);width:32px;height:32px;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.zoom-btn:hover{background:var(--border)}.zoom-btn:active{opacity:.7}
+.zoom-val{flex:1;text-align:center;font-size:16px;font-weight:700;font-family:'SF Mono',Menlo,monospace}
+.zoom-label{font-size:11px;color:var(--text2);margin-bottom:5px}
+.zoom-note{font-size:11px;color:var(--text3);text-align:center;margin-top:5px}
 .cam-btn{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rs);padding:12px 8px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent}
 .cam-btn:hover{border-color:var(--border2)}
 .cam-btn.active{border-color:var(--accent);background:var(--surface)}
@@ -297,6 +303,15 @@ textarea:focus{border-color:var(--border2)}
         <span class="cam-btn-sub">背面・外向き</span>
       </button>
     </div>
+    <!-- カメラズーム（子機側） -->
+    <p class="zoom-label">🔍 カメラズーム</p>
+    <div class="zoom-row" style="margin-bottom:4px">
+      <button class="zoom-btn" onclick="adjustZoom(-0.5)">−</button>
+      <span class="zoom-val" id="s-zoom-val">1.0x</span>
+      <button class="zoom-btn" onclick="adjustZoom(0.5)">+</button>
+    </div>
+    <p class="zoom-note" id="s-zoom-note">保護者からも操作できます</p>
+    <div style="height:10px"></div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
       <div>
         <div class="toggle-label">🎤 マイク送信</div>
@@ -561,6 +576,29 @@ textarea:focus{border-color:var(--border2)}
 
       <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
 
+      <!-- ズーム -->
+      <div class="ctrl-section">
+        <p class="ctrl-section-label">🔍 ズーム</p>
+        <!-- リモートズーム（子機カメラ） -->
+        <p class="zoom-label">📷 カメラズーム（子機側）</p>
+        <div class="zoom-row" style="margin-bottom:4px">
+          <button class="zoom-btn" onclick="sendZoomCmd(-0.5)">−</button>
+          <span class="zoom-val" id="r-zoom-val">1.0x</span>
+          <button class="zoom-btn" onclick="sendZoomCmd(0.5)">+</button>
+        </div>
+        <p class="zoom-note" style="margin-bottom:10px">子機のカメラをリモートでズーム</p>
+        <!-- ローカルズーム（表示のみ） -->
+        <p class="zoom-label">🖥️ 表示ズーム（親機側）</p>
+        <div class="zoom-row">
+          <button class="zoom-btn" onclick="adjustCanvasZoom(-0.5)">−</button>
+          <span class="zoom-val" id="r-canvas-zoom-val">1.0x</span>
+          <button class="zoom-btn" onclick="adjustCanvasZoom(0.5)">+</button>
+        </div>
+        <p class="zoom-note">受信映像の表示のみ拡大（PiPにも反映）</p>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
+
       <!-- 録画 -->
       <div class="ctrl-section">
         <p class="ctrl-section-label">⏺ 録画</p>
@@ -634,6 +672,8 @@ let lastConnectedTime=null,reconnectCountdownTimer=null;
 let wasRecording=false;
 let frontCameraId=null,backCameraId=null;
 let tsAnimFrame=null,canvasStream=null,showTimestamp=true,rotationDeg=0;
+let cameraZoom=1.0,zoomMin=1.0,zoomMax=5.0,nativeZoomOk=false;
+let canvasViewZoom=1.0,remoteZoom=1.0;
 let mediaRecorder=null,recChunks=[],recChunkCount=0;
 let recStartTime=null,recChunkStartTime=null,recTimerInterval=null;
 const CHUNK_MIN=5;
@@ -749,15 +789,15 @@ async function startNumericMode(){
   showEl('s-numcode-display',true);
   setStatus('s-status','ready','保護者のPCにコードを入力してもらってください',false);
   startNumCodeTimer(300);
-  // アンサーをMQTTで待つ
+  // アンサーをディスパッチャー経由で待つ（ハンドラ蓄積なし）
   const answerTopic=`mimamori_v2/${code}/answer`;
   mqttClient.subscribe(answerTopic,{qos:1});
-  const h=async(t,msg)=>{
-    if(t!==answerTopic||!msg.toString())return;
-    const d=dec(msg.toString());
+  mqttHandlers.set(answerTopic,async msg=>{
+    const d=dec(msg);
     if(!d||d.type!=='answer')return;
     if(senderPC.signalingState!=='have-local-offer')return;
-    mqttClient.removeListener('message',h);
+    mqttHandlers.delete(answerTopic);
+    mqttClient.unsubscribe(answerTopic);
     try{
       await senderPC.setRemoteDescription({type:d.type,sdp:d.sdp});
       lastConnectedTime=Date.now();
@@ -773,10 +813,8 @@ async function startNumericMode(){
       document.getElementById('s-mic-state').className='toggle-state on';
       enableLeaveWarning();
       if(!sessionStorage.getItem('pwa_hint_dismissed')) showEl('s-pwa-hint',true);
-      // 使用済みコードをクリア
       mqttClient.publish(`mimamori_v2/${code}/offer`,'',{qos:1,retain:true});
       mqttClient.publish(answerTopic,'',{qos:1,retain:true});
-      // 再接続用MQTTアンサー監視
       mqttSubscribe('reconnect_answer',async data=>{
         const rd=dec(data);
         if(rd&&rd.type==='answer'&&senderPC&&senderPC.signalingState==='have-local-offer'){
@@ -792,8 +830,7 @@ async function startNumericMode(){
     }catch(e){
       setStatus('s-status','error','❌ 接続失敗。もう一度お試しください。',false);
     }
-  };
-  mqttClient.on('message',h);
+  });
 }
 
 // 受信側: 数字コードで接続
@@ -811,12 +848,13 @@ async function connectWithNumericCode(){
   const offerTopic=`mimamori_v2/${raw}/offer`;
   let offerReceived=false;
   mqttClient.subscribe(offerTopic,{qos:1});
-  const h=async(t,msg)=>{
-    if(t!==offerTopic||offerReceived||!msg.toString())return;
-    const decoded=dec(msg.toString());
+  let offerReceived=false;
+  mqttHandlers.set(offerTopic,async msg=>{
+    if(offerReceived)return;
+    const decoded=dec(msg);
     if(!decoded||decoded.type!=='offer')return;
     offerReceived=true;
-    mqttClient.removeListener('message',h);
+    mqttHandlers.delete(offerTopic);
     mqttClient.unsubscribe(offerTopic);
     sessionId=decoded.sid||null;
     setStatus('r-status','waiting','アンサーを生成中（最大8秒）...',true);
@@ -852,11 +890,10 @@ async function connectWithNumericCode(){
       {qos:1,retain:true}
     );
     setStatus('r-status','waiting','スマホ側の接続を待っています...',true);
-  };
-  mqttClient.on('message',h);
+  });
   setTimeout(()=>{
     if(!offerReceived){
-      mqttClient.removeListener('message',h);
+      mqttHandlers.delete(offerTopic);
       mqttClient.unsubscribe(offerTopic);
       setStatus('r-status','error','❌ コードが見つかりません。番号と有効期限を確認してください。',false);
     }
@@ -951,6 +988,7 @@ async function quickReconnect(){
   const camLabel=document.getElementById('s-cam-label');
   if(camLabel) camLabel.textContent='📷 アウトカメラ（背面）';
   await enumerateCameras();
+  await initZoom();
   showEl('vol-row',true);startVol(localStream);
   // MQTT接続
   setStatus('s-status','waiting','保護者のPCへ再接続中...',true);
@@ -1131,11 +1169,14 @@ function startTimestampOverlay(){
     const cw=rotated?vh:vw,ch=rotated?vw:vh;
     if(canvas.width!==cw) canvas.width=cw;
     if(canvas.height!==ch) canvas.height=ch;
+    // 表示ズーム：中心をクロップ
+    const sw=vw/canvasViewZoom, sh=vh/canvasViewZoom;
+    const sx=(vw-sw)/2, sy=(vh-sh)/2;
     // 回転して描画
     ctx.save();
     ctx.translate(cw/2,ch/2);
     ctx.rotate(rotationDeg*Math.PI/180);
-    ctx.drawImage(video,-vw/2,-vh/2,vw,vh);
+    ctx.drawImage(video,sx,sy,sw,sh,-vw/2,-vh/2,vw,vh);
     ctx.restore();
     // 時刻オーバーレイ
     if(showTimestamp){
@@ -1169,6 +1210,66 @@ function startTimestampOverlay(){
 function stopTimestampOverlay(){
   if(tsAnimFrame){cancelAnimationFrame(tsAnimFrame);tsAnimFrame=null}
   canvasStream=null;
+}
+
+// ── ズーム機能 ────────────────────────────────────────────
+// 子機側：ネイティブズーム初期化
+async function initZoom(){
+  if(!localStream)return;
+  const track=localStream.getVideoTracks()[0];
+  try{
+    const cap=track.getCapabilities();
+    nativeZoomOk=!!(cap&&cap.zoom);
+    if(nativeZoomOk){
+      zoomMin=cap.zoom.min||1.0;
+      zoomMax=cap.zoom.max||5.0;
+      cameraZoom=zoomMin;
+    }
+  }catch(e){nativeZoomOk=false}
+  updateSenderZoomUI();
+}
+
+async function applyNativeZoom(val){
+  cameraZoom=Math.max(zoomMin,Math.min(zoomMax,Math.round(val*10)/10));
+  if(nativeZoomOk&&localStream){
+    try{
+      const track=localStream.getVideoTracks()[0];
+      await track.applyConstraints({advanced:[{zoom:cameraZoom}]});
+    }catch(e){console.warn('zoom:',e)}
+  }
+  updateSenderZoomUI();
+  if(controlChannel&&controlChannel.readyState==='open'){
+    controlChannel.send('zoom:'+cameraZoom.toFixed(1));
+  }
+}
+
+function adjustZoom(delta){applyNativeZoom(cameraZoom+delta)}
+
+function updateSenderZoomUI(){
+  const el=document.getElementById('s-zoom-val');
+  if(el) el.textContent=cameraZoom.toFixed(1)+'x';
+  const note=document.getElementById('s-zoom-note');
+  if(note) note.textContent=nativeZoomOk
+    ?'保護者からも操作できます'
+    :'※このデバイスはネイティブズーム非対応（表示ズームは有効）';
+}
+
+// 親機側：子機カメラリモートズーム
+function sendZoomCmd(delta){
+  if(!controlChannel||controlChannel.readyState!=='open'){
+    setStatus('r-status','error','❌ まだ接続されていません',false);return;
+  }
+  remoteZoom=Math.max(1.0,Math.min(10.0,Math.round((remoteZoom+delta)*10)/10));
+  controlChannel.send('zoom:'+remoteZoom.toFixed(1));
+  const el=document.getElementById('r-zoom-val');
+  if(el) el.textContent=remoteZoom.toFixed(1)+'x';
+}
+
+// 親機側：表示ズーム（canvasクロップ）
+function adjustCanvasZoom(delta){
+  canvasViewZoom=Math.max(1.0,Math.min(5.0,Math.round((canvasViewZoom+delta)*10)/10));
+  const el=document.getElementById('r-canvas-zoom-val');
+  if(el) el.textContent=canvasViewZoom.toFixed(1)+'x';
 }
 
 // 映像回転（ts-canvas → captureStream経由でPiPにも自動反映）
@@ -1284,18 +1385,37 @@ function initMQTT(){
     if(typeof mqtt==='undefined'){resolve(null);return}
     const cid='mimo_'+Math.random().toString(36).substr(2,8);
     const c=mqtt.connect(MQTT_URL,{clientId:cid,clean:true,connectTimeout:8000,reconnectPeriod:3000});
-    c.on('connect',()=>{mqttClient=c;resolve(c)});
+    c.on('connect',()=>{
+      mqttClient=c;
+      mqttHandlers.clear(); // 再接続時にハンドラをリセット
+      c.on('message',mqttDispatch); // 単一ディスパッチャーに統一
+      resolve(c);
+    });
     c.on('error',e=>console.warn('MQTT',e));
     setTimeout(()=>resolve(null),10000);
   });
 }
 function mqttTopic(role){return`mimamori_v1/${sessionId}/${role}`}
 function mqttPublish(role,data){if(!mqttClient||!mqttClient.connected)return;mqttClient.publish(mqttTopic(role),data,{qos:1,retain:true})}
+
+// ディスパッチャーパターン：ハンドラをマップで管理し蓄積を防ぐ
+const mqttHandlers=new Map();
+function mqttDispatch(t,msg){
+  const str=msg.toString();
+  if(!str)return;
+  mqttHandlers.forEach((cb,topic)=>{if(t===topic)cb(str)});
+}
 function mqttSubscribe(role,cb){
   if(!mqttClient||!mqttClient.connected)return;
   const topic=mqttTopic(role);
   mqttClient.subscribe(topic,{qos:1});
-  mqttClient.on('message',(t,msg)=>{if(t===topic&&msg.toString())cb(msg.toString())});
+  mqttHandlers.set(topic,cb); // 同じtopicへの重複登録を上書きで防ぐ
+}
+function mqttUnsubscribe(role){
+  if(!mqttClient||!mqttClient.connected)return;
+  const topic=mqttTopic(role);
+  mqttClient.unsubscribe(topic);
+  mqttHandlers.delete(topic);
 }
 function mqttClear(role){if(!mqttClient||!mqttClient.connected)return;mqttClient.publish(mqttTopic(role),'',{qos:1,retain:true})}
 
@@ -1334,6 +1454,7 @@ async function goSender(){
   if(camLabel) camLabel.textContent='📷 アウトカメラ（背面）';
   // カメラデバイスを列挙してIDを保存（切り替えの信頼性向上）
   await enumerateCameras();
+  await initZoom();
   showEl('vol-row',true);startVol(localStream);
   setStatus('s-status','ready','カメラ起動完了。「オファーを作成する」を押してください。',false);
   document.getElementById('make-offer-btn').disabled=false;
@@ -1464,6 +1585,10 @@ function toggleSenderMic(){
 async function handleSenderCmd(cmd){
   if(cmd==='camera:front')await switchCamera('user','インカメラ（前面）');
   if(cmd==='camera:back')await switchCamera('environment','アウトカメラ（背面）');
+  if(cmd.startsWith('zoom:')){
+    const val=parseFloat(cmd.split(':')[1]);
+    if(!isNaN(val)) applyNativeZoom(val);
+  }
   if(cmd==='mic:mute'){if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=false);document.getElementById('s-mic-toggle').checked=false;document.getElementById('s-mic-state').textContent='OFF';document.getElementById('s-mic-state').className='toggle-state off'}
   if(cmd==='mic:unmute'){if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=true);document.getElementById('s-mic-toggle').checked=true;document.getElementById('s-mic-state').textContent='ON';document.getElementById('s-mic-state').className='toggle-state on'}
 }
@@ -1648,7 +1773,14 @@ function handleReceiverMsg(msg){
     document.getElementById('r-switch-msg').textContent=`📷 現在: ${label}`;
     setActiveCamBtn(face==='user'?'front':'back');
   }
-  if(msg==='mic:on'){document.getElementById('r-mic-toggle').checked=true;document.getElementById('r-mic-state').textContent='ON';document.getElementById('r-mic-state').className='toggle-state on'}
+  if(msg.startsWith('zoom:')){
+    const val=parseFloat(msg.split(':')[1]);
+    if(!isNaN(val)){
+      remoteZoom=val;
+      const el=document.getElementById('r-zoom-val');
+      if(el) el.textContent=val.toFixed(1)+'x';
+    }
+  }
   if(msg==='mic:off'){document.getElementById('r-mic-toggle').checked=false;document.getElementById('r-mic-state').textContent='OFF';document.getElementById('r-mic-state').className='toggle-state off'}
 }
 function setActiveCamBtn(w){document.getElementById('btn-front').classList.toggle('active',w==='front');document.getElementById('btn-back').classList.toggle('active',w==='back')}
