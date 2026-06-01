@@ -1246,205 +1246,110 @@ function buildPopupHTML(){
   return`<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>見守りアプリ — 操作パネル</title>
+<title>見守りアプリ — プレビュー</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0efeb;--border:rgba(0,0,0,.12);--border2:rgba(0,0,0,.22);--text:#1a1a18;--text2:#6b6b68;--text3:#9a9a96;--accent:#1a1a18;--accent-fg:#fff;--green-bg:#eaf3de;--green-text:#3b6d11;--green-border:rgba(59,109,17,.3);--amber-bg:#faeeda;--amber-text:#854f0b;--amber-border:rgba(133,79,11,.3);--red-bg:#fcebeb;--red-text:#a32d2d;--red-border:rgba(163,45,45,.3);--r:12px;--rs:8px}
-@media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--surface:#2a2a28;--surface2:#232321;--border:rgba(255,255,255,.1);--border2:rgba(255,255,255,.2);--text:#f0efe9;--text2:#a8a8a3;--text3:#6b6b67;--accent:#f0efe9;--accent-fg:#1c1c1a;--green-bg:#17340a;--green-text:#c0dd97;--green-border:rgba(192,221,151,.25);--red-bg:#501313;--red-text:#f7c1c1;--red-border:rgba(163,45,45,.3)}}
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;overflow-y:auto}
-body{padding:0;margin:0}
-/* タイトルバー */
-.titlebar{position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;user-select:none}
-.titlebar-left{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
-.titlebar-right{display:flex;align-items:center;gap:8px}
-.rec-live{display:none;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--red-text);background:var(--red-bg);border:1px solid var(--red-border);padding:3px 9px;border-radius:99px}
+:root{--bg:#111;--surface:rgba(30,30,28,.92);--border:rgba(255,255,255,.15);--text:#f0efe9;--text2:#a8a8a3;--green:#c0dd97;--red:#f7c1c1;--rs:8px}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif}
+/* 映像エリア */
+#va{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:#000;position:relative}
+#vc{max-width:100%;max-height:100%;display:block;width:auto;height:auto}
+/* 待機メッセージ */
+#wait{position:absolute;color:var(--text2);font-size:14px;text-align:center;pointer-events:none}
+.spin{display:inline-block;width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--text);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ボトムバー */
+#bar{position:fixed;bottom:0;left:0;right:0;padding:10px 16px;background:var(--surface);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;z-index:10}
+.bar-label{font-size:12px;color:var(--text2)}
+.vol-btn{background:none;border:1.5px solid var(--border);border-radius:99px;padding:6px 18px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:border-color .15s,color .15s}
+.vol-btn.muted{border-color:var(--red);color:var(--red)}
+.vol-btn.active{border-color:var(--green);color:var(--green)}
+.pip-btn{background:none;border:1.5px solid var(--border);border-radius:99px;padding:6px 14px;color:var(--text2);font-size:12px;cursor:pointer}
+.pip-btn:hover{border-color:var(--text);color:var(--text)}
+.rec-live{display:none;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#f7c1c1;background:rgba(163,45,45,.3);border:1px solid rgba(247,193,193,.3);padding:3px 9px;border-radius:99px}
 .rec-live.on{display:flex}
-.rec-dot{width:6px;height:6px;border-radius:50%;background:var(--red-text);animation:pulse 1s infinite}
+.rec-dot{width:6px;height:6px;border-radius:50%;background:#f7c1c1;animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
-/* コンテンツ */
-.body{padding:16px}
-.ctrl-section{margin-bottom:1.25rem}
-.ctrl-section-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
-/* 映像 */
-.video-wrap{position:relative;cursor:pointer;border-radius:var(--rs);overflow:hidden;margin-bottom:4px}
-.video-wrap canvas{width:100%;display:block;background:#000;border-radius:var(--rs)}
-.pip-hint{position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;padding:2px 7px;border-radius:4px;pointer-events:none;opacity:0;transition:opacity .2s}
-.video-wrap:hover .pip-hint{opacity:1}
-/* カメラボタン */
-.cam-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
-.cam-btn{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rs);padding:12px 8px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.cam-btn.active{border-color:var(--accent);background:var(--surface)}
-.cam-btn-icon{font-size:20px;display:block;margin-bottom:3px}
-.cam-btn-label{font-size:12px;font-weight:600}
-.cam-btn-sub{font-size:11px;color:var(--text2)}
-.ctrl-switch-status{font-size:12px;color:var(--text2);text-align:center;margin-top:6px}
-/* トグル */
-.ctrl-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)}
-.ctrl-toggle-row:first-child{border-top:none;padding-top:0}
-.toggle-label{font-size:13px;font-weight:500}
-.toggle-sub{font-size:11px;color:var(--text2);margin-top:2px}
-.toggle-wrap{display:flex;align-items:center;gap:8px}
-.toggle-state{font-size:12px;font-weight:600}
-.toggle-state.on{color:var(--green-text)}.toggle-state.off{color:var(--red-text)}
-.toggle{position:relative;width:44px;height:26px;flex-shrink:0}
-.toggle input{opacity:0;width:0;height:0;position:absolute}
-.toggle-track{position:absolute;inset:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:99px;cursor:pointer;transition:background .2s}
-.toggle input:checked+.toggle-track{background:var(--green-text);border-color:var(--green-text)}
-.toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.toggle input:checked~.toggle-thumb{transform:translateX(18px)}
-/* 録画 */
-.rec-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}
-.rec-stat{background:var(--surface2);border-radius:var(--rs);padding:8px;text-align:center}
-.rec-stat-val{font-size:15px;font-weight:700;font-family:'SF Mono',Menlo,monospace}
-.rec-stat-lbl{font-size:10px;color:var(--text3);margin-top:2px}
-.rec-btns{display:flex;gap:8px;margin-bottom:8px}
-.btn-primary{background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;flex:1}
-.btn-danger{background:var(--red-text);color:#fff;border:none;border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;flex:1}
-.rec-log{background:var(--surface2);border-radius:var(--rs);padding:8px;font-size:11px;font-family:'SF Mono',Menlo,monospace;color:var(--text2);max-height:70px;overflow-y:auto;line-height:1.6;white-space:pre-wrap}
-.divider{border:none;border-top:1px solid var(--border);margin:0 0 1.25rem}
 </style></head>
 <body>
-<div class="titlebar">
-  <div class="titlebar-left">⚙️ 操作パネル</div>
-  <div class="titlebar-right">
-    <div class="rec-live" id="rl"><span class="rec-dot"></span>録画中</div>
+<div id="va">
+  <canvas id="vc"></canvas>
+  <div id="wait">
+    <div class="spin"></div><br>映像を受信中...
   </div>
 </div>
-<div class="body">
-
-  <!-- 受信映像 -->
-  <div class="ctrl-section">
-    <p class="ctrl-section-label" style="display:flex;align-items:center;justify-content:space-between">
-      <span>📺 受信映像</span>
-      <span style="font-size:10px;font-weight:400;color:var(--text3)">クリックでPiP</span>
-    </p>
-    <video id="pv" autoplay playsinline muted style="display:none"></video>
-    <div class="video-wrap" onclick="togglePiP()">
-      <canvas id="vc"></canvas>
-      <div class="pip-hint">⊞ PiP</div>
-    </div>
+<video id="pv" autoplay playsinline muted style="display:none"></video>
+<div id="bar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="rec-live" id="rl"><span class="rec-dot"></span>REC</div>
+    <span class="bar-label" id="bar-status">接続待機中</span>
   </div>
-
-  <hr class="divider">
-
-  <!-- カメラ切り替え -->
-  <div class="ctrl-section">
-    <p class="ctrl-section-label">📷 カメラ切り替え</p>
-    <div class="cam-ctrl">
-      <div class="cam-btn" id="bf" onclick="cmd('camera:front')">
-        <span class="cam-btn-icon">🤳</span>
-        <span class="cam-btn-label">インカメラ</span>
-        <span class="cam-btn-sub">顔・前方向</span>
-      </div>
-      <div class="cam-btn active" id="bb" onclick="cmd('camera:back')">
-        <span class="cam-btn-icon">📷</span>
-        <span class="cam-btn-label">アウトカメラ</span>
-        <span class="cam-btn-sub">背面・外向き</span>
-      </div>
-    </div>
-    <p class="ctrl-switch-status" id="cm">📷 現在: アウトカメラ（背面）</p>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="pip-btn" onclick="togglePiP()" title="ピクチャインピクチャ">⊞ PiP</button>
+    <button class="vol-btn active" id="vol-btn" onclick="toggleVol()">🔊 音声 ON</button>
   </div>
-
-  <hr class="divider">
-
-  <!-- 音声 -->
-  <div class="ctrl-section">
-    <p class="ctrl-section-label">🔊 音声コントロール</p>
-    <div class="ctrl-toggle-row" style="border-top:none;padding-top:0">
-      <div><div class="toggle-label">🔊 受信音声（PC側）</div><div class="toggle-sub">OFFにするとスピーカーを消音</div></div>
-      <div class="toggle-wrap">
-        <span class="toggle-state on" id="ss">ON</span>
-        <label class="toggle"><input type="checkbox" id="st" checked onchange="cmd(this.checked?'spk:on':'spk:off');us('ss',this.checked)"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
-      </div>
-    </div>
-    <div class="ctrl-toggle-row">
-      <div><div class="toggle-label">🎤 子供のマイク</div><div class="toggle-sub">OFFにするとスマホ側のマイクを停止</div></div>
-      <div class="toggle-wrap">
-        <span class="toggle-state on" id="ms">ON</span>
-        <label class="toggle"><input type="checkbox" id="mt" checked onchange="cmd(this.checked?'mic:on':'mic:off');us('ms',this.checked)"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
-      </div>
-    </div>
-  </div>
-
-  <hr class="divider">
-
-  <!-- 録画 -->
-  <div class="ctrl-section">
-    <p class="ctrl-section-label">⏺ 録画</p>
-    <div class="rec-grid">
-      <div class="rec-stat"><div class="rec-stat-val" id="rt">00:00</div><div class="rec-stat-lbl">経過時間</div></div>
-      <div class="rec-stat"><div class="rec-stat-val" id="rc">—</div><div class="rec-stat-lbl">保存済み</div></div>
-      <div class="rec-stat"><div class="rec-stat-val" id="rn">—</div><div class="rec-stat-lbl">次の保存まで</div></div>
-    </div>
-    <div class="rec-btns">
-      <button class="btn-primary" id="rs2" onclick="cmd('rec:start')">⏺ 録画開始</button>
-      <button class="btn-danger" id="rp" onclick="cmd('rec:stop')" style="display:none">⏹ 停止・保存</button>
-    </div>
-    <div class="rec-log" id="rl2">メインウィンドウの状態を待っています...</div>
-  </div>
-
 </div>
 <script>
 const bc=new BroadcastChannel('mimamori_ctrl');
-bc.postMessage({type:'ready'});
 const canvas=document.getElementById('vc');
 const ctx=canvas.getContext('2d');
 const pv=document.getElementById('pv');
-let pipAnimFrame=null;
+const wait=document.getElementById('wait');
+let volOn=true,firstFrame=false;
 
-// canvas描画ループ（videoから毎フレーム描画・ホバー暗転なし）
-function startRender(){
-  if(pipAnimFrame)cancelAnimationFrame(pipAnimFrame);
-  function draw(){
-    pipAnimFrame=requestAnimationFrame(draw);
-    if(pv.videoWidth&&!pv.paused){
-      if(canvas.width!==pv.videoWidth)canvas.width=pv.videoWidth;
-      if(canvas.height!==pv.videoHeight)canvas.height=pv.videoHeight;
-      ctx.drawImage(pv,0,0);
-    }
-  }
-  draw();
+// 準備完了を通知（少し待ってから送信して確実に受信されるようにする）
+setTimeout(()=>bc.postMessage({type:'ready'}),300);
+
+// 音量トグル
+function toggleVol(){
+  volOn=!volOn;
+  bc.postMessage({type:'cmd',cmd:volOn?'spk:on':'spk:off'});
+  const btn=document.getElementById('vol-btn');
+  btn.className='vol-btn '+(volOn?'active':'muted');
+  btn.textContent=volOn?'🔊 音声 ON':'🔇 音声 OFF';
 }
 
 // PiP
 async function togglePiP(){
   try{
     if(document.pictureInPictureElement){await document.exitPictureInPicture()}
-    else{await pv.requestPictureInPicture()}
+    else{
+      if(!pv.srcObject&&canvas.captureStream){
+        pv.srcObject=canvas.captureStream(30);
+        await pv.play().catch(()=>{});
+      }
+      await pv.requestPictureInPicture();
+    }
   }catch(e){console.warn('PiP:',e)}
 }
 
-function cmd(c){bc.postMessage({type:'cmd',cmd:c})}
-function us(id,on){const el=document.getElementById(id);if(el){el.textContent=on?'ON':'OFF';el.className='toggle-state '+(on?'on':'off')}}
-
+// フレーム受信
 bc.onmessage=e=>{
   const d=e.data;
   if(d.type==='frame'){
-    // フレームをvideoに渡さずcanvasに直接描画
-    if(canvas.width!==d.bitmap.width)canvas.width=d.bitmap.width;
-    if(canvas.height!==d.bitmap.height)canvas.height=d.bitmap.height;
+    if(!firstFrame){
+      firstFrame=true;
+      wait.style.display='none';
+      document.getElementById('bar-status').textContent='受信中';
+    }
+    if(canvas.width!==d.bitmap.width) canvas.width=d.bitmap.width;
+    if(canvas.height!==d.bitmap.height) canvas.height=d.bitmap.height;
     ctx.drawImage(d.bitmap,0,0);
     d.bitmap.close();
-    // PiP用videoにもストリームをセット（初回のみ）
-    if(!pv.srcObject&&canvas.captureStream){
-      pv.srcObject=canvas.captureStream(30);
-      pv.play().catch(()=>{});
-    }
   }
   if(d.type==='state'){
-    const isFront=d.camMsg&&d.camMsg.includes('インカメラ');
-    document.getElementById('cm').textContent=d.camMsg;
-    document.getElementById('bf').className='cam-btn'+(isFront?' active':'');
-    document.getElementById('bb').className='cam-btn'+(isFront?'':' active');
-    document.getElementById('st').checked=d.spkOn;us('ss',d.spkOn);
-    document.getElementById('mt').checked=d.micOn;us('ms',d.micOn);
-    document.getElementById('rt').textContent=d.recTimer;
-    document.getElementById('rc').textContent=d.recChunk;
-    document.getElementById('rn').textContent=d.recNext;
-    document.getElementById('rl2').textContent=d.recLog;
+    if(!firstFrame&&d.camMsg){
+      wait.style.display='none';
+      document.getElementById('bar-status').textContent='受信中';
+    }
     document.getElementById('rl').className='rec-live'+(d.recActive?' on':'');
-    document.getElementById('rs2').style.display=d.recActive?'none':'';
-    document.getElementById('rp').style.display=d.recActive?'':'none';
+    // 音量状態を同期
+    if(d.spkOn!==undefined&&d.spkOn!==volOn){
+      volOn=d.spkOn;
+      const btn=document.getElementById('vol-btn');
+      btn.className='vol-btn '+(volOn?'active':'muted');
+      btn.textContent=volOn?'🔊 音声 ON':'🔇 音声 OFF';
+    }
   }
 };
 window.onbeforeunload=()=>bc.close();
