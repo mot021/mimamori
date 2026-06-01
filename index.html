@@ -466,8 +466,16 @@ textarea:focus{border-color:var(--border2)}
 
       <!-- 受信映像 -->
       <div class="ctrl-section">
-        <p class="ctrl-section-label">📺 受信映像</p>
-        <video id="ctrl-video" autoplay playsinline muted style="width:100%;border-radius:var(--rs);background:#000;aspect-ratio:4/3;object-fit:cover;display:block"></video>
+        <p class="ctrl-section-label" style="display:flex;align-items:center;justify-content:space-between">
+          <span>📺 受信映像</span>
+          <span style="font-size:10px;font-weight:400;color:var(--text3)">クリックでPiP</span>
+        </p>
+        <!-- videoは非表示（ストリーム保持・PiP用）、canvasで表示（ホバー暗転なし） -->
+        <video id="ctrl-video" autoplay playsinline muted style="display:none"></video>
+        <div style="position:relative;cursor:pointer;border-radius:var(--rs);overflow:hidden" onclick="toggleCtrlPiP()">
+          <canvas id="ctrl-canvas" style="width:100%;aspect-ratio:4/3;display:block;background:#000;border-radius:var(--rs)"></canvas>
+          <div id="pip-hint" style="position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;padding:2px 7px;border-radius:4px;pointer-events:none;opacity:0;transition:opacity .2s">⊞ PiP</div>
+        </div>
       </div>
 
       <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
@@ -1439,9 +1447,44 @@ bc.onmessage=e=>{
 window.onbeforeunload=()=>bc.close();
 <\/script></body></html>`;
 }
+let ctrlCanvasAnimFrame=null;
+
+function startCtrlCanvasRender(){
+  if(ctrlCanvasAnimFrame){cancelAnimationFrame(ctrlCanvasAnimFrame);ctrlCanvasAnimFrame=null}
+  const video=document.getElementById('ctrl-video');
+  const canvas=document.getElementById('ctrl-canvas');
+  if(!video||!canvas)return;
+  const ctx=canvas.getContext('2d');
+  function draw(){
+    ctrlCanvasAnimFrame=requestAnimationFrame(draw);
+    if(video.videoWidth&&!video.paused){
+      if(canvas.width!==video.videoWidth) canvas.width=video.videoWidth;
+      if(canvas.height!==video.videoHeight) canvas.height=video.videoHeight;
+      ctx.drawImage(video,0,0);
+    }
+  }
+  draw();
+}
+
+function stopCtrlCanvasRender(){
+  if(ctrlCanvasAnimFrame){cancelAnimationFrame(ctrlCanvasAnimFrame);ctrlCanvasAnimFrame=null}
+}
+
+async function toggleCtrlPiP(){
+  const video=document.getElementById('ctrl-video');
+  if(!video||!video.srcObject)return;
+  try{
+    if(document.pictureInPictureElement){
+      await document.exitPictureInPicture();
+    } else {
+      await video.requestPictureInPicture();
+    }
+  }catch(e){console.warn('PiP非対応またはエラー:',e)}
+}
+
 // ── コントロールパネル（フローティング）────────────────────
 function openCtrl(){
-  // 操作パネルの映像に時刻入りキャンバスをセット
+  // 操作パネルの映像にキャンバスストリームをセット
   const tsCanvas=document.getElementById('ts-canvas');
   const ctrlVideo=document.getElementById('ctrl-video');
   if(tsCanvas&&ctrlVideo){
@@ -1451,12 +1494,22 @@ function openCtrl(){
       ctrlVideo.srcObject=remoteStream;
     }
     ctrlVideo.play().catch(()=>{});
+    // canvasへの描画開始（ホバー暗転なし）
+    setTimeout(()=>startCtrlCanvasRender(),300);
+  }
+  // PiPヒントのホバー制御
+  const hint=document.getElementById('pip-hint');
+  const wrap=hint&&hint.parentElement;
+  if(wrap&&hint){
+    wrap.onmouseenter=()=>{hint.style.opacity='1'};
+    wrap.onmouseleave=()=>{hint.style.opacity='0'};
   }
   const bd=document.getElementById('ctrl-backdrop');
   bd.classList.add('open');
   document.body.style.overflow='hidden';
 }
 function closeCtrl(){
+  stopCtrlCanvasRender();
   document.getElementById('ctrl-backdrop').classList.remove('open');
   document.body.style.overflow='';
 }
@@ -1473,7 +1526,7 @@ function hideHint(){
 // ── クリーンアップ ────────────────────────────────────────
 function goHome(){disableLeaveWarning();cleanup();closeCtrl();clearSession();show('home')}
 function cleanup(){
-  stopRecording();stopCountdown();stopTimestampOverlay();stopFrameSharing();stopTURNCheck();clearNumCodeTimer();
+  stopRecording();stopCountdown();stopTimestampOverlay();stopFrameSharing();stopTURNCheck();clearNumCodeTimer();stopCtrlCanvasRender();
   if(volInterval){clearInterval(volInterval);volInterval=null}
   if(audioCtx){try{audioCtx.close()}catch(e){}audioCtx=null}
   if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}
