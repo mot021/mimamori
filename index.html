@@ -157,6 +157,9 @@ textarea:focus{border-color:var(--border2)}
   transform:translateY(0);
   animation:slideUp .22s cubic-bezier(.4,0,.2,1);
   display:flex;flex-direction:column;
+  /* リサイズ対応 */
+  resize:vertical;
+  min-height:200px;
 }
 @media(min-width:600px){
   .ctrl-window{
@@ -165,6 +168,10 @@ textarea:focus{border-color:var(--border2)}
     width:420px;max-height:80vh;
     border-radius:var(--r);
     animation:popIn .18s cubic-bezier(.4,0,.2,1);
+    /* デスクトップ：縦横両方リサイズ可能 */
+    resize:both;
+    min-width:320px;min-height:200px;
+    max-width:90vw;
   }
 }
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -180,7 +187,7 @@ textarea:focus{border-color:var(--border2)}
 .ctrl-title{font-size:15px;font-weight:700}
 .ctrl-close{background:var(--surface2);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text2);flex-shrink:0}
 .ctrl-close:hover{background:var(--border)}
-.ctrl-body{overflow-y:auto;padding:16px 20px 24px;flex:1}
+.ctrl-body{overflow-y:auto;padding:16px 20px 24px;flex:1;min-height:0}
 /* ウィンドウ内のセクション */
 .ctrl-section{margin-bottom:1.25rem}
 .ctrl-section-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
@@ -272,8 +279,8 @@ textarea:focus{border-color:var(--border2)}
 
   <!-- 方式切り替えタブ -->
   <div class="method-tabs" id="s-method-tabs">
-    <button class="method-tab active" id="s-tab-email" onclick="setSenderMethod('email')">📧 メール方式</button>
-    <button class="method-tab" id="s-tab-code" onclick="setSenderMethod('code')">🔢 数字コード方式</button>
+    <button class="method-tab" id="s-tab-email" onclick="setSenderMethod('email')">📧 メール方式</button>
+    <button class="method-tab active" id="s-tab-code" onclick="setSenderMethod('code')">🔢 数字コード方式</button>
   </div>
 
   <!-- 接続後のカメラ・音声コントロール -->
@@ -305,14 +312,14 @@ textarea:focus{border-color:var(--border2)}
     </div>
   </div>
 
-  <div id="s-step1">
+  <div id="s-step1" style="display:none">
     <div class="step-badge">STEP 1 — カメラ確認</div>
     <p class="page-sub">映像を確認して「オファーを作成する」を押してください</p>
     <button class="btn-primary btn-full" id="make-offer-btn" onclick="makeOffer()" disabled>オファーを作成する →</button>
   </div>
 
   <!-- 数字コード方式UI -->
-  <div id="s-numcode-box" style="display:none">
+  <div id="s-numcode-box">
     <div id="s-numcode-generate">
       <div class="step-badge">STEP 1 — コードを発行</div>
       <p class="page-sub">ボタンを押すと8桁の接続コードが発行されます</p>
@@ -470,7 +477,7 @@ textarea:focus{border-color:var(--border2)}
         <!-- videoは非表示（ストリーム保持・PiP用）、canvasで表示（ホバー暗転なし） -->
         <video id="ctrl-video" autoplay playsinline muted style="display:none"></video>
         <div style="position:relative;cursor:pointer;border-radius:var(--rs);overflow:hidden" onclick="toggleCtrlPiP()">
-          <canvas id="ctrl-canvas" style="width:100%;aspect-ratio:4/3;display:block;background:#000;border-radius:var(--rs)"></canvas>
+          <canvas id="ctrl-canvas" style="width:100%;height:auto;display:block;background:#000;border-radius:var(--rs)"></canvas>
           <div id="pip-hint" style="position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;padding:2px 7px;border-radius:4px;pointer-events:none;opacity:0;transition:opacity .2s">⊞ PiP</div>
         </div>
       </div>
@@ -620,7 +627,6 @@ let mqttClient=null,sessionId=null;
 let lastConnectedTime=null,reconnectCountdownTimer=null;
 let wasRecording=false;
 let frontCameraId=null,backCameraId=null;
-let pipWin=null,ctrlBC=null,frameInterval=null;
 let tsAnimFrame=null,canvasStream=null,showTimestamp=true;
 let mediaRecorder=null,recChunks=[],recChunkCount=0;
 let recStartTime=null,recChunkStartTime=null,recTimerInterval=null;
@@ -1162,170 +1168,19 @@ function toggleTimestamp(){
 }
 
 // ── 別ウィンドウ（操作パネル）────────────────────────────
-// PiP → 小窓で開く（ホバー暗転なし）
-function openPiPWindow(){
-  if(pipWin&&!pipWin.closed){pipWin.focus();return}
-  if(!ctrlBC){
-    ctrlBC=new BroadcastChannel('mimamori_ctrl');
-    ctrlBC.onmessage=e=>{
-      const d=e.data;
-      if(d.type==='cmd'){
-        if(d.cmd==='spk:on'){document.getElementById('r-spk-toggle').checked=true;toggleReceiverSpk()}
-        if(d.cmd==='spk:off'){document.getElementById('r-spk-toggle').checked=false;toggleReceiverSpk()}
-      }
-      if(d.type==='ready') broadcastState();
-    };
-  }
-  const html=buildPopupHTML();
-  const blob=new Blob([html],{type:'text/html'});
-  const url=URL.createObjectURL(blob);
-  pipWin=window.open(url,'pip_window','width=400,height=270,resizable=yes');
-  if(!pipWin){alert('ポップアップがブロックされました。ブラウザの設定で許可してください。');return}
-  startFrameSharing();
-  const ck=setInterval(()=>{
-    if(pipWin&&pipWin.closed){clearInterval(ck);stopFrameSharing();pipWin=null}
-  },1000);
-}
-function startFrameSharing(){
-  stopFrameSharing();
-  frameInterval=setInterval(()=>{
-    if(!ctrlBC||!pipWin||pipWin.closed){stopFrameSharing();return}
-    const canvas=document.getElementById('ts-canvas');
-    if(!canvas||!canvas.width)return;
-    createImageBitmap(canvas).then(bmp=>{
-      try{ctrlBC.postMessage({type:'frame',bitmap:bmp},[bmp])}catch(e){}
-    });
-    broadcastState();
-  },100);
-}
-function stopFrameSharing(){if(frameInterval){clearInterval(frameInterval);frameInterval=null}}
-function broadcastState(){
-  if(!ctrlBC)return;
-  const spk=document.getElementById('r-spk-toggle');
-  const mic=document.getElementById('r-mic-toggle');
-  ctrlBC.postMessage({type:'state',
-    camMsg:document.getElementById('r-switch-msg')?.textContent||'',
-    spkOn:spk?spk.checked:true,micOn:mic?mic.checked:true,
-    recActive:!!(mediaRecorder&&mediaRecorder.state==='recording'),
-    recTimer:document.getElementById('rec-timer')?.textContent||'00:00',
-    recChunk:document.getElementById('rec-chunk')?.textContent||'—',
-    recNext:document.getElementById('rec-next')?.textContent||'—',
-    recLog:document.getElementById('rec-log')?.textContent||''
-  });
-}
-function buildPopupHTML(){
-  return`<!DOCTYPE html>
-<html lang="ja"><head><meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>見守りアプリ — プレビュー</title>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#111;--surface:rgba(30,30,28,.92);--border:rgba(255,255,255,.15);--text:#f0efe9;--text2:#a8a8a3;--green:#c0dd97;--red:#f7c1c1;--rs:8px}
-html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif}
-/* 映像エリア */
-#va{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:#000;position:relative}
-#vc{max-width:100%;max-height:100%;display:block;width:auto;height:auto}
-/* 待機メッセージ */
-#wait{position:absolute;color:var(--text2);font-size:14px;text-align:center;pointer-events:none}
-.spin{display:inline-block;width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--text);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:10px}
-@keyframes spin{to{transform:rotate(360deg)}}
-/* ボトムバー */
-#bar{position:fixed;bottom:0;left:0;right:0;padding:10px 16px;background:var(--surface);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;z-index:10}
-.bar-label{font-size:12px;color:var(--text2)}
-.vol-btn{background:none;border:1.5px solid var(--border);border-radius:99px;padding:6px 18px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:border-color .15s,color .15s}
-.vol-btn.muted{border-color:var(--red);color:var(--red)}
-.vol-btn.active{border-color:var(--green);color:var(--green)}
-.pip-btn{background:none;border:1.5px solid var(--border);border-radius:99px;padding:6px 14px;color:var(--text2);font-size:12px;cursor:pointer}
-.pip-btn:hover{border-color:var(--text);color:var(--text)}
-.rec-live{display:none;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#f7c1c1;background:rgba(163,45,45,.3);border:1px solid rgba(247,193,193,.3);padding:3px 9px;border-radius:99px}
-.rec-live.on{display:flex}
-.rec-dot{width:6px;height:6px;border-radius:50%;background:#f7c1c1;animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
-</style></head>
-<body>
-<div id="va">
-  <canvas id="vc"></canvas>
-  <div id="wait">
-    <div class="spin"></div><br>映像を受信中...
-  </div>
-</div>
-<video id="pv" autoplay playsinline muted style="display:none"></video>
-<div id="bar">
-  <div style="display:flex;align-items:center;gap:10px">
-    <div class="rec-live" id="rl"><span class="rec-dot"></span>REC</div>
-    <span class="bar-label" id="bar-status">接続待機中</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:8px">
-    <button class="pip-btn" onclick="togglePiP()" title="ピクチャインピクチャ">⊞ PiP</button>
-    <button class="vol-btn active" id="vol-btn" onclick="toggleVol()">🔊 音声 ON</button>
-  </div>
-</div>
-<script>
-const bc=new BroadcastChannel('mimamori_ctrl');
-const canvas=document.getElementById('vc');
-const ctx=canvas.getContext('2d');
-const pv=document.getElementById('pv');
-const wait=document.getElementById('wait');
-let volOn=true,firstFrame=false;
-
-// 準備完了を通知（少し待ってから送信して確実に受信されるようにする）
-setTimeout(()=>bc.postMessage({type:'ready'}),300);
-
-// 音量トグル
-function toggleVol(){
-  volOn=!volOn;
-  bc.postMessage({type:'cmd',cmd:volOn?'spk:on':'spk:off'});
-  const btn=document.getElementById('vol-btn');
-  btn.className='vol-btn '+(volOn?'active':'muted');
-  btn.textContent=volOn?'🔊 音声 ON':'🔇 音声 OFF';
-}
-
-// PiP
-async function togglePiP(){
+// PiP → 小窓で開く（postMessage通信・ホバー暗転なし）
+async function toggleCtrlPiP(){
+  const video=document.getElementById('ctrl-video');
+  if(!video||!video.srcObject)return;
   try{
-    if(document.pictureInPictureElement){await document.exitPictureInPicture()}
-    else{
-      if(!pv.srcObject&&canvas.captureStream){
-        pv.srcObject=canvas.captureStream(30);
-        await pv.play().catch(()=>{});
-      }
-      await pv.requestPictureInPicture();
+    if(document.pictureInPictureElement){
+      await document.exitPictureInPicture();
+    } else {
+      await video.requestPictureInPicture();
     }
   }catch(e){console.warn('PiP:',e)}
 }
 
-// フレーム受信
-bc.onmessage=e=>{
-  const d=e.data;
-  if(d.type==='frame'){
-    if(!firstFrame){
-      firstFrame=true;
-      wait.style.display='none';
-      document.getElementById('bar-status').textContent='受信中';
-    }
-    if(canvas.width!==d.bitmap.width) canvas.width=d.bitmap.width;
-    if(canvas.height!==d.bitmap.height) canvas.height=d.bitmap.height;
-    ctx.drawImage(d.bitmap,0,0);
-    d.bitmap.close();
-  }
-  if(d.type==='state'){
-    if(!firstFrame&&d.camMsg){
-      wait.style.display='none';
-      document.getElementById('bar-status').textContent='受信中';
-    }
-    document.getElementById('rl').className='rec-live'+(d.recActive?' on':'');
-    // 音量状態を同期
-    if(d.spkOn!==undefined&&d.spkOn!==volOn){
-      volOn=d.spkOn;
-      const btn=document.getElementById('vol-btn');
-      btn.className='vol-btn '+(volOn?'active':'muted');
-      btn.textContent=volOn?'🔊 音声 ON':'🔇 音声 OFF';
-    }
-  }
-};
-window.onbeforeunload=()=>bc.close();
-<\/script></body></html>`;
-}
 let ctrlCanvasAnimFrame=null;
 
 function startCtrlCanvasRender(){
@@ -1348,8 +1203,6 @@ function startCtrlCanvasRender(){
 function stopCtrlCanvasRender(){
   if(ctrlCanvasAnimFrame){cancelAnimationFrame(ctrlCanvasAnimFrame);ctrlCanvasAnimFrame=null}
 }
-
-function toggleCtrlPiP(){openPiPWindow()}
 
 // ── コントロールパネル（フローティング）────────────────────
 function openCtrl(){
@@ -1395,15 +1248,13 @@ function hideHint(){
 // ── クリーンアップ ────────────────────────────────────────
 function goHome(){disableLeaveWarning();cleanup();closeCtrl();clearSession();show('home')}
 function cleanup(){
-  stopRecording();stopCountdown();stopTimestampOverlay();stopFrameSharing();stopTURNCheck();clearNumCodeTimer();stopCtrlCanvasRender();
+  stopRecording();stopCountdown();stopTimestampOverlay();stopTURNCheck();clearNumCodeTimer();stopCtrlCanvasRender();
   if(volInterval){clearInterval(volInterval);volInterval=null}
   if(audioCtx){try{audioCtx.close()}catch(e){}audioCtx=null}
   if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}
   if(senderPC){try{senderPC.close()}catch(e){}senderPC=null}
   if(receiverPC){try{receiverPC.close()}catch(e){}receiverPC=null}
   if(mqttClient){try{mqttClient.end()}catch(e){}mqttClient=null}
-  popupWins&&popupWins.forEach&&popupWins.forEach(w=>{try{if(w&&!w.closed)w.close()}catch(e){}});
-  if(pipWin){try{if(!pipWin.closed)pipWin.close()}catch(e){}pipWin=null}
   controlChannel=null;remoteStream=null;sessionId=null;lastConnectedTime=null;
 }
 
