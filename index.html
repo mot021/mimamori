@@ -846,7 +846,6 @@ async function connectWithNumericCode(){
   }
   setStatus('r-status','waiting','コードを確認中...',true);
   const offerTopic=`mimamori_v2/${raw}/offer`;
-  let offerReceived=false;
   mqttClient.subscribe(offerTopic,{qos:1});
   let offerReceived=false;
   mqttHandlers.set(offerTopic,async msg=>{
