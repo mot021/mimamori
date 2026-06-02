@@ -486,16 +486,12 @@ textarea:focus{border-color:var(--border2)}
     </div>
     <div class="ctrl-body">
 
-      <!-- 受信映像 -->
+      <!-- ① 受信映像 -->
       <div class="ctrl-section">
         <p class="ctrl-section-label" style="display:flex;align-items:center;justify-content:space-between">
           <span>📺 受信映像</span>
-          <span style="display:flex;align-items:center;gap:6px">
-            <button class="rotate-btn" onclick="rotateVideo()" style="background:none;border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-size:11px;cursor:pointer;color:var(--text2)">🔄 0°</button>
-            <span style="font-size:10px;font-weight:400;color:var(--text3)">クリックでPiP</span>
-          </span>
+          <span style="font-size:10px;font-weight:400;color:var(--text3)">クリックでPiP</span>
         </p>
-        <!-- videoは非表示（ストリーム保持・PiP用）、canvasで表示（ホバー暗転なし） -->
         <video id="ctrl-video" autoplay playsinline muted style="display:none"></video>
         <div style="position:relative;cursor:pointer;border-radius:var(--rs);overflow:hidden" onclick="toggleCtrlPiP()">
           <canvas id="ctrl-canvas" style="width:100%;height:auto;display:block;background:#000;border-radius:var(--rs)"></canvas>
@@ -503,27 +499,45 @@ textarea:focus{border-color:var(--border2)}
         </div>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1rem">
 
-      <!-- 時刻表示 -->
+      <!-- ② 映像回転 -->
       <div class="ctrl-section">
-        <p class="ctrl-section-label">🕐 時刻表示</p>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
+        <p class="ctrl-section-label">🔄 映像回転</p>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="rotate-btn" onclick="rotateVideo()" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);text-align:center">🔄 0°</button>
+          <span style="font-size:11px;color:var(--text3)">押すたびに90°回転<br>PiP・録画にも反映</span>
+        </div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1rem">
+
+      <!-- ③ ズーム（横並び） -->
+      <div class="ctrl-section">
+        <p class="ctrl-section-label">🔍 ズーム</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div>
-            <div style="font-size:13px;font-weight:500">映像への時刻オーバーレイ</div>
-            <div style="font-size:11px;color:var(--text2);margin-top:2px">録画ファイルにも時刻が焼き込まれます</div>
+            <p class="zoom-label" style="margin-bottom:5px">📷 子機側</p>
+            <div class="zoom-row">
+              <button class="zoom-btn" onclick="sendZoomCmd(-0.5)">−</button>
+              <span class="zoom-val" id="r-zoom-val">1.0x</span>
+              <button class="zoom-btn" onclick="sendZoomCmd(0.5)">+</button>
+            </div>
           </div>
-          <div class="toggle-wrap">
-            <span class="toggle-state on" id="ts-state">ON</span>
-            <label class="toggle">
-              <input type="checkbox" id="ts-toggle" checked onchange="toggleTimestamp()">
-              <div class="toggle-track"></div><div class="toggle-thumb"></div>
-            </label>
+          <div>
+            <p class="zoom-label" style="margin-bottom:5px">🖥️ 親機側</p>
+            <div class="zoom-row">
+              <button class="zoom-btn" onclick="adjustCanvasZoom(-0.5)">−</button>
+              <span class="zoom-val" id="r-canvas-zoom-val">1.0x</span>
+              <button class="zoom-btn" onclick="adjustCanvasZoom(0.5)">+</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1rem">
+
+      <!-- ④ カメラ切り替え -->
       <div class="ctrl-section">
         <p class="ctrl-section-label">📷 カメラ切り替え</p>
         <div class="cam-ctrl">
@@ -541,75 +555,62 @@ textarea:focus{border-color:var(--border2)}
         <p id="r-switch-msg" class="ctrl-switch-status">📷 現在: インカメラ</p>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1rem">
 
-      <!-- 音声コントロール -->
+      <!-- ⑤ 音声コントロール（横並び・説明文なし） -->
       <div class="ctrl-section">
         <p class="ctrl-section-label">🔊 音声コントロール</p>
-        <div class="ctrl-toggle-row">
-          <div>
-            <div class="toggle-label">🔊 受信音声（PC側）</div>
-            <div class="toggle-sub">OFFにするとPC側のスピーカーを消音</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <!-- 受信音声 -->
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;font-weight:600">🔊 受信音声</span>
+            <div class="toggle-wrap">
+              <span class="toggle-state on" id="r-spk-state">ON</span>
+              <label class="toggle">
+                <input type="checkbox" id="r-spk-toggle" checked onchange="toggleReceiverSpk()">
+                <div class="toggle-track"></div><div class="toggle-thumb"></div>
+              </label>
+            </div>
           </div>
-          <div class="toggle-wrap">
-            <span class="toggle-state on" id="r-spk-state">ON</span>
-            <label class="toggle">
-              <input type="checkbox" id="r-spk-toggle" checked onchange="toggleReceiverSpk()">
-              <div class="toggle-track"></div><div class="toggle-thumb"></div>
-            </label>
-          </div>
-        </div>
-        <div class="ctrl-toggle-row">
-          <div>
-            <div class="toggle-label">🎤 子供のマイク</div>
-            <div class="toggle-sub">OFFにするとスマホ側のマイクをリモートで停止</div>
-          </div>
-          <div class="toggle-wrap">
-            <span class="toggle-state on" id="r-mic-state">ON</span>
-            <label class="toggle">
-              <input type="checkbox" id="r-mic-toggle" checked onchange="toggleRemoteMic()">
-              <div class="toggle-track"></div><div class="toggle-thumb"></div>
-            </label>
+          <!-- 送信マイク -->
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;font-weight:600">🎤 送信マイク</span>
+            <div class="toggle-wrap">
+              <span class="toggle-state on" id="r-mic-state">ON</span>
+              <label class="toggle">
+                <input type="checkbox" id="r-mic-toggle" checked onchange="toggleRemoteMic()">
+                <div class="toggle-track"></div><div class="toggle-thumb"></div>
+              </label>
+            </div>
           </div>
         </div>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1rem">
 
-      <!-- ズーム -->
+      <!-- ⑥ 時刻表示 -->
       <div class="ctrl-section">
-        <p class="ctrl-section-label">🔍 ズーム</p>
-        <!-- リモートズーム（子機カメラ） -->
-        <p class="zoom-label">📷 カメラズーム（子機側）</p>
-        <div class="zoom-row" style="margin-bottom:4px">
-          <button class="zoom-btn" onclick="sendZoomCmd(-0.5)">−</button>
-          <span class="zoom-val" id="r-zoom-val">1.0x</span>
-          <button class="zoom-btn" onclick="sendZoomCmd(0.5)">+</button>
+        <p class="ctrl-section-label">🕐 時刻表示</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
+          <div>
+            <div style="font-size:13px;font-weight:500">映像への時刻オーバーレイ</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">受信端末の時刻を表示</div>
+          </div>
+          <div class="toggle-wrap">
+            <span class="toggle-state on" id="ts-state">ON</span>
+            <label class="toggle">
+              <input type="checkbox" id="ts-toggle" checked onchange="toggleTimestamp()">
+              <div class="toggle-track"></div><div class="toggle-thumb"></div>
+            </label>
+          </div>
         </div>
-        <p class="zoom-note" style="margin-bottom:10px">子機のカメラをリモートでズーム</p>
-        <!-- ローカルズーム（表示のみ） -->
-        <p class="zoom-label">🖥️ 表示ズーム（親機側）</p>
-        <div class="zoom-row">
-          <button class="zoom-btn" onclick="adjustCanvasZoom(-0.5)">−</button>
-          <span class="zoom-val" id="r-canvas-zoom-val">1.0x</span>
-          <button class="zoom-btn" onclick="adjustCanvasZoom(0.5)">+</button>
-        </div>
-        <p class="zoom-note">受信映像の表示のみ拡大（PiPにも反映）</p>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
+      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1rem">
 
-      <!-- 録画 -->
+      <!-- ⑦ 録画（画質選択を開始ボタンの下へ） -->
       <div class="ctrl-section">
         <p class="ctrl-section-label">⏺ 録画</p>
-        <div class="rec-quality">
-          <span>画質：</span>
-          <select id="quality-select">
-            <option value="2000000">高画質（約75MB/5分）</option>
-            <option value="1000000" selected>標準（約37MB/5分）</option>
-            <option value="500000">低画質（約19MB/5分）</option>
-          </select>
-        </div>
         <div class="rec-grid">
           <div class="rec-stat"><div class="rec-stat-val" id="rec-timer">00:00</div><div class="rec-stat-lbl">経過時間</div></div>
           <div class="rec-stat"><div class="rec-stat-val" id="rec-chunk">—</div><div class="rec-stat-lbl">保存済み</div></div>
@@ -618,6 +619,14 @@ textarea:focus{border-color:var(--border2)}
         <div class="rec-btns">
           <button class="btn-primary" id="rec-start-btn" onclick="startRecording()">⏺ 録画開始</button>
           <button class="btn-danger" id="rec-stop-btn" onclick="stopRecording()" style="display:none">⏹ 停止・保存</button>
+        </div>
+        <div class="rec-quality" style="margin-top:8px">
+          <span>画質：</span>
+          <select id="quality-select">
+            <option value="2000000">高画質（約75MB/5分）</option>
+            <option value="1000000" selected>標準（約37MB/5分）</option>
+            <option value="500000">低画質（約19MB/5分）</option>
+          </select>
         </div>
         <div class="rec-log" id="rec-log">待機中...</div>
       </div>
